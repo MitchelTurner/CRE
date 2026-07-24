@@ -5,6 +5,7 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/http-exception.filter';
 
 function deployMeta() {
   return {
@@ -69,6 +70,16 @@ async function bootstrap(): Promise<void> {
     next();
   });
 
+  // Prevent browsers/CDNs from caching authenticated API 401/200 responses.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (API_PREFIXES.some((prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`))) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+    }
+    next();
+  });
+
+  app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

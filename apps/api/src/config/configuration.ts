@@ -11,7 +11,7 @@ export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: resolveRedisUrl(),
-  apiToken: process.env.API_TOKEN ?? '',
+  apiToken: (process.env.API_TOKEN ?? '').trim(),
   resendApiKey: process.env.RESEND_API_KEY ?? '',
   digestFrom: process.env.DIGEST_FROM ?? 'leads@example.com',
   digestRecipients: (process.env.DIGEST_RECIPIENTS ?? '')

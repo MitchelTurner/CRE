@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { clearToken, getToken, setToken as persistToken } from '../lib/auth';
-import { verifyToken } from '../lib/api';
+import { AUTH_LOST_EVENT, verifyToken } from '../lib/api';
 
 interface AuthContextValue {
   ready: boolean;
@@ -48,12 +48,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    const onAuthLost = () => setAuthenticated(false);
+    window.addEventListener(AUTH_LOST_EVENT, onAuthLost);
+    return () => window.removeEventListener(AUTH_LOST_EVENT, onAuthLost);
+  }, []);
+
   const login = useCallback(async (token: string) => {
-    persistToken(token);
+    persistToken(token.trim());
     const ok = await verifyToken();
     if (!ok) {
       clearToken();
-      throw new Error('Invalid API token');
+      throw new Error('Invalid API token — must match API_TOKEN on the server');
     }
     setAuthenticated(true);
   }, []);

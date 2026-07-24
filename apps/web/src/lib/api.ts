@@ -1,4 +1,4 @@
-import { getToken } from './auth';
+import { clearToken, getToken } from './auth';
 import type {
   DigestPreview,
   LeadRow,
@@ -16,18 +16,32 @@ export class ApiError extends Error {
   }
 }
 
+export const AUTH_LOST_EVENT = 'cre:auth-lost';
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
+  headers.set('Cache-Control', 'no-store');
   if (token) headers.set('Authorization', `Bearer ${token}`);
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    clearToken();
+    window.dispatchEvent(new Event(AUTH_LOST_EVENT));
+    throw new ApiError(res.status, 'Invalid or missing bearer token — sign in again');
+  }
+
   if (!res.ok) {
-    let message = res.statusText;
+    let message = res.statusText || `HTTP ${res.status}`;
     try {
       const body = (await res.json()) as { message?: string | string[] };
       if (Array.isArray(body.message)) message = body.message.join(', ');
@@ -103,20 +117,21 @@ export function sendDigest() {
 }
 
 export async function verifyToken(): Promise<boolean> {
+  const token = getToken();
+  if (!token) return false;
+
   try {
-    // Cheap authenticated probe — avoids heavy parcel queries during login.
     const res = await fetch('/admin/sync-runs?limit=1', {
       headers: {
         Accept: 'application/json',
-        Authorization: `Bearer ${getToken() ?? ''}`,
+        Authorization: `Bearer ${token}`,
+        'Cache-Control': 'no-store',
       },
+      cache: 'no-store',
     });
     if (res.status === 401 || res.status === 403) return false;
-    if (!res.ok && res.status >= 500) {
-      // Auth passed far enough that the guard accepted the token.
-      return true;
-    }
-    return res.ok;
+    // 5xx after the guard means the token was accepted.
+    return res.ok || res.status >= 500;
   } catch {
     throw new Error('Could not reach API');
   }

@@ -33,7 +33,15 @@ export function AdminPage() {
     try {
       await fn();
       setMessage(`${label} succeeded`);
-      await refreshRuns();
+      try {
+        await refreshRuns();
+      } catch (refreshErr) {
+        setError(
+          refreshErr instanceof Error
+            ? `${label} succeeded, but refreshing history failed: ${refreshErr.message}`
+            : `${label} succeeded, but refreshing history failed`,
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : `${label} failed`);
     } finally {

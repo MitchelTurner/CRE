@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -13,6 +13,8 @@ export interface ParcelListQuery {
 
 @Injectable()
 export class ParcelsService {
+  private readonly logger = new Logger(ParcelsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ParcelListQuery) {
@@ -35,48 +37,104 @@ export class ParcelsService {
       filters.push(Prisma.sql`o."isAbsentee" = ${query.absentee}`);
     }
 
-    const rows = await this.prisma.$queryRaw<
-      Array<{
-        id: string;
-        pin: string;
-        situsAddress: string | null;
-        landUseCode: string | null;
-        propType: string | null;
-        deedDate: Date | null;
-        isAbsentee: boolean | null;
-        ownerName: string | null;
-        score: number | null;
-        scoredAt: Date | null;
-        components: unknown;
-      }>
-    >(Prisma.sql`
-      SELECT
-        p.id,
-        p.pin,
-        p."situsAddress",
-        p."landUseCode",
-        p."propType",
-        p."deedDate",
-        o."isAbsentee",
-        o."nameRaw" AS "ownerName",
-        s.total AS score,
-        s."scoredAt",
-        s.components
-      FROM "Parcel" p
-      LEFT JOIN "Owner" o ON o.id = p."ownerId"
-      LEFT JOIN LATERAL (
-        SELECT total, "scoredAt", components
-        FROM "Score"
-        WHERE "parcelId" = p.id
-        ORDER BY "scoredAt" DESC
-        LIMIT 1
-      ) s ON true
-      WHERE ${Prisma.join(filters, ' AND ')}
-      ORDER BY s.total DESC NULLS LAST
-      LIMIT ${limit} OFFSET ${offset}
-    `);
+    try {
+      const rows = await this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          pin: string;
+          situsAddress: string | null;
+          landUseCode: string | null;
+          propType: string | null;
+          deedDate: Date | null;
+          isAbsentee: boolean | null;
+          ownerName: string | null;
+          score: number | null;
+          scoredAt: Date | null;
+          components: unknown;
+        }>
+      >(Prisma.sql`
+        SELECT
+          p.id,
+          p.pin,
+          p."situsAddress",
+          p."landUseCode",
+          p."propType",
+          p."deedDate",
+          o."isAbsentee",
+          o."nameRaw" AS "ownerName",
+          s.total AS score,
+          s."scoredAt",
+          s.components
+        FROM "Parcel" p
+        LEFT JOIN "Owner" o ON o.id = p."ownerId"
+        LEFT JOIN LATERAL (
+          SELECT total, "scoredAt", components
+          FROM "Score"
+          WHERE "parcelId" = p.id
+          ORDER BY "scoredAt" DESC
+          LIMIT 1
+        ) s ON true
+        WHERE ${Prisma.join(filters, ' AND ')}
+        ORDER BY s.total DESC NULLS LAST
+        LIMIT ${limit} OFFSET ${offset}
+      `);
 
-    return { items: rows, limit, offset };
+      return { items: rows, limit, offset };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Raw parcel list query failed; using Prisma fallback: ${message}`);
+      return this.listWithPrismaClient(query, limit, offset);
+    }
+  }
+
+  private async listWithPrismaClient(
+    query: ParcelListQuery,
+    limit: number,
+    offset: number,
+  ) {
+    const parcels = await this.prisma.parcel.findMany({
+      where: {
+        isActive: true,
+        isCommercial: true,
+        ...(query.landUse ? { landUseCode: query.landUse } : {}),
+        ...(typeof query.absentee === 'boolean'
+          ? { owner: { isAbsentee: query.absentee } }
+          : {}),
+      },
+      include: {
+        owner: { select: { nameRaw: true, isAbsentee: true } },
+        scores: {
+          orderBy: { scoredAt: 'desc' },
+          take: 1,
+          select: { total: true, scoredAt: true, components: true },
+        },
+      },
+      take: 5000,
+    });
+
+    const minScore = query.minScore ?? 0;
+    const items = parcels
+      .map((p) => {
+        const latest = p.scores[0];
+        return {
+          id: p.id,
+          pin: p.pin,
+          situsAddress: p.situsAddress,
+          landUseCode: p.landUseCode,
+          propType: p.propType,
+          deedDate: p.deedDate,
+          isAbsentee: p.owner?.isAbsentee ?? null,
+          ownerName: p.owner?.nameRaw ?? null,
+          score: latest?.total ?? null,
+          scoredAt: latest?.scoredAt ?? null,
+          components: latest?.components ?? null,
+        };
+      })
+      .filter((p) => (minScore > 0 ? (p.score ?? -1) >= minScore : true))
+      .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+      .slice(offset, offset + limit);
+
+    return { items, limit, offset };
   }
 
   async getByPin(pin: string) {

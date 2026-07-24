@@ -19,6 +19,9 @@ describe('parcel.mapper', () => {
         LOCATE: 'PEARL AVE',
         PROPTYPE: 'COMMERCIAL',
         FAIRMKTVAL: 1250000,
+        SLPRICE: 900000,
+        TOTTAX: 18450.25,
+        PAIDDATE: null,
       },
       DEFAULT_FIELD_MAP,
       {
@@ -36,6 +39,9 @@ describe('parcel.mapper', () => {
     expect(mapped!.owner.isAbsentee).toBe(true);
     expect(mapped!.isCommercial).toBe(true);
     expect(mapped!.deedDate?.toISOString()).toBe('2001-01-01T00:00:00.000Z');
+    expect(mapped!.salePrice).toBe(900000);
+    expect(mapped!.totalTax).toBe(18450.25);
+    expect(mapped!.paidDate).toBeNull();
   });
 
   it('parses ArcGIS epoch dates', () => {

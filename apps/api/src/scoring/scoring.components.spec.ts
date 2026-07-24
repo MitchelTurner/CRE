@@ -5,6 +5,9 @@ import {
   scoreLandUsePriority,
   scoreMultiParcel,
   scoreParcel,
+  scoreTaxDelinquent,
+  scoreFmvBoost,
+  scoreSignals,
   normalizeOwnerName,
   isEntityOwner,
   isAbsenteeOwner,
@@ -106,6 +109,26 @@ describe('owner + address normalization', () => {
   });
 });
 
+describe('v2 signal / tax / fmv components', () => {
+  it('scores tax delinquency from paidDate null', () => {
+    expect(scoreTaxDelinquent({ paidDate: null, totalTax: 1200 })).toBe(15);
+    expect(scoreTaxDelinquent({ paidDate: new Date(), totalTax: 1200 })).toBe(0);
+  });
+
+  it('boosts investable FMV bands', () => {
+    expect(scoreFmvBoost(300_000)).toBe(2);
+    expect(scoreFmvBoost(1_000_000)).toBe(4);
+    expect(scoreFmvBoost(2_500_000)).toBe(5);
+  });
+
+  it('maps signal types to points', () => {
+    const pts = scoreSignals(['foreclosure', 'mortgage_maturity', 'sos_dissolved']);
+    expect(pts.foreclosure).toBe(25);
+    expect(pts.mortgageMaturity).toBe(20);
+    expect(pts.sosBoost).toBe(10);
+  });
+});
+
 describe('scoreParcel integration', () => {
   it('scores out-of-state LLC portfolio owner highly', () => {
     const asOf = new Date('2026-07-24T00:00:00Z');
@@ -127,6 +150,29 @@ describe('scoreParcel integration', () => {
     expect(result.components.entity).toBe(10);
     expect(result.components.multiParcel).toBe(10);
     expect(result.components.landUsePriority).toBe(15);
+    expect(result.total).toBe(100);
+  });
+
+  it('adds distress + FMV without exceeding 100', () => {
+    const asOf = new Date('2026-07-24T00:00:00Z');
+    const result = scoreParcel({
+      deedDate: new Date('2005-01-01T00:00:00Z'),
+      mailingStreet: '100 Main St',
+      situsAddress: '500 Pearl Ave',
+      mailingState: 'GA',
+      ownerName: 'ACME HOLDINGS LLC',
+      activeCommercialParcelCount: 5,
+      landUseCode: '940',
+      landUsePriorityMap: { '940': 15 },
+      fairMarketVal: 2_000_000,
+      totalTax: 5000,
+      paidDate: null,
+      signalTypes: ['foreclosure'],
+      asOf,
+    });
+    expect(result.components.foreclosure).toBe(25);
+    expect(result.components.taxDelinquent).toBe(15);
+    expect(result.components.fmvBoost).toBe(5);
     expect(result.total).toBe(100);
   });
 });

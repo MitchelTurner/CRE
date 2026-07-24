@@ -13,6 +13,7 @@ export class JobsScheduler implements OnApplicationBootstrap {
 
   constructor(
     @InjectQueue(QUEUES.INGESTION) private readonly ingestionQueue: Queue,
+    @InjectQueue(QUEUES.ENRICHMENT) private readonly enrichmentQueue: Queue,
     @InjectQueue(QUEUES.DIGEST) private readonly digestQueue: Queue,
   ) {}
 
@@ -24,6 +25,17 @@ export class JobsScheduler implements OnApplicationBootstrap {
         {
           jobId: 'cron-parcels-daily',
           repeat: { pattern: '0 6 * * *', tz: 'America/New_York' },
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+
+      await this.enrichmentQueue.add(
+        JOBS.ENRICHMENT_PASS,
+        { reason: 'cron', topN: 25 },
+        {
+          jobId: 'cron-enrichment-daily',
+          repeat: { pattern: '0 8 * * *', tz: 'America/New_York' },
           removeOnComplete: 50,
           removeOnFail: 50,
         },
@@ -41,7 +53,7 @@ export class JobsScheduler implements OnApplicationBootstrap {
       );
 
       this.logger.log(
-        'Registered cron jobs: parcels.dailySync (06:00 ET), digest.weekly (Mon 08:00 ET)',
+        'Registered cron jobs: parcels.dailySync (06:00 ET), enrichment.pass (08:00 ET), digest.weekly (Mon 08:00 ET)',
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

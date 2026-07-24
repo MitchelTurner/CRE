@@ -1,6 +1,7 @@
 import {
   DEFAULT_COMMERCIAL_LANDUSE_CODES,
   DEFAULT_COMMERCIAL_PROP_TYPES,
+  DEFAULT_DIGEST_FMV_FLOOR,
   DEFAULT_FIELD_MAP,
   DEFAULT_LANDUSE_PRIORITY,
   DEFAULT_SCORE_WEIGHTS,
@@ -21,6 +22,10 @@ export default () => ({
   digestTopN: parseInt(process.env.DIGEST_TOP_N ?? '10', 10),
   digestExclusionDays: parseInt(process.env.DIGEST_EXCLUSION_DAYS ?? '90', 10),
   digestResendScoreDelta: parseInt(process.env.DIGEST_RESEND_SCORE_DELTA ?? '15', 10),
+  digestFmvFloor: parseInt(
+    process.env.DIGEST_FMV_FLOOR ?? String(DEFAULT_DIGEST_FMV_FLOOR),
+    10,
+  ),
   arcgis: {
     parcelLayerUrl:
       process.env.ARCGIS_PARCEL_LAYER_URL ??
@@ -31,7 +36,7 @@ export default () => ({
       process.env.ARCGIS_USER_AGENT ??
       'GreenvilleCRE-LeadEngine/1.0 (+contact@example.com)',
   },
-  scoreVersion: process.env.SCORE_VERSION ?? 'v1',
+  scoreVersion: process.env.SCORE_VERSION ?? 'v2',
   countyName: process.env.COUNTY_NAME ?? 'Greenville',
   countyHomeState: process.env.COUNTY_HOME_STATE ?? 'SC',
   countyParcelLinkBase:
@@ -45,5 +50,6 @@ export default () => ({
     commercialPropTypes: [...DEFAULT_COMMERCIAL_PROP_TYPES],
     scoreWeights: DEFAULT_SCORE_WEIGHTS,
     landUsePriority: DEFAULT_LANDUSE_PRIORITY,
+    digestFmvFloor: DEFAULT_DIGEST_FMV_FLOOR,
   },
 });

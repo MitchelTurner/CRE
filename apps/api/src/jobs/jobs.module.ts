@@ -8,6 +8,7 @@ import { JobsScheduler } from './jobs.scheduler';
     BullModule.registerQueue(
       { name: QUEUES.INGESTION },
       { name: QUEUES.SCORING },
+      { name: QUEUES.ENRICHMENT },
       { name: QUEUES.DIGEST },
     ),
   ],

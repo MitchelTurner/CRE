@@ -1,6 +1,7 @@
 import { clearToken, getToken } from './auth';
 import type {
   DigestPreview,
+  FeedbackRating,
   LeadRow,
   LeadStatus,
   ParcelDetail,
@@ -101,11 +102,27 @@ export function updateLeadStatus(id: string, status: LeadStatus) {
 }
 
 export function enqueueSync() {
-  return request<{ enqueued: boolean; jobId: string }>('/admin/sync', { method: 'POST' });
+  return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/sync', {
+    method: 'POST',
+  });
+}
+
+export function enqueueEnrich(topN = 25) {
+  return request<{ enqueued: boolean; jobId: string; note?: string }>(
+    `/admin/enrich?topN=${topN}`,
+    { method: 'POST' },
+  );
+}
+
+export function submitLeadFeedback(id: string, rating: FeedbackRating, note?: string) {
+  return request<LeadRow>(`/leads/${encodeURIComponent(id)}/feedback`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, note }),
+  });
 }
 
 export function listSyncRuns() {
-  return request<SyncRun[]>('/admin/sync-runs?limit=10');
+  return request<SyncRun[]>('/admin/sync-runs?limit=20');
 }
 
 export function previewDigest() {

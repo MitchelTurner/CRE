@@ -6,6 +6,16 @@ import { formatDate, formatMoney, yearsHeld } from '../lib/format';
 import { ScoreBar } from '../components/ScoreBar';
 import { StatusSelect } from '../components/StatusSelect';
 
+const SIGNAL_LABELS: Record<string, string> = {
+  tax_delinquent: 'Tax delinquent',
+  tax_sale: 'Tax sale',
+  mortgage_maturity: 'Mortgage maturity',
+  foreclosure: 'Foreclosure',
+  recent_seller: 'Recent seller / 1031',
+  sos_dissolved: 'SoS dissolved/inactive',
+  sos_resolved: 'SoS resolved',
+};
+
 export function ParcelDetailPage() {
   const { pin = '' } = useParams();
   const [parcel, setParcel] = useState<ParcelDetail | null>(null);
@@ -77,6 +87,7 @@ export function ParcelDetailPage() {
   }
 
   const components = latest?.components;
+  const contacts = parcel.owner?.contacts ?? [];
 
   return (
     <div className="animate-fade">
@@ -108,6 +119,9 @@ export function ParcelDetailPage() {
             />
             <Fact label="Deed date" value={`${formatDate(parcel.deedDate)} (${yearsHeld(parcel.deedDate)}y)`} />
             <Fact label="Fair market value" value={formatMoney(parcel.fairMarketVal)} />
+            <Fact label="Sale price" value={formatMoney(parcel.salePrice)} />
+            <Fact label="Total tax" value={formatMoney(parcel.totalTax)} />
+            <Fact label="Tax paid date" value={formatDate(parcel.paidDate)} />
             <Fact label="Land use" value={parcel.landUseCode || '—'} />
             <Fact
               label="Flags"
@@ -118,7 +132,42 @@ export function ParcelDetailPage() {
                 .filter(Boolean)
                 .join(' · ') || 'Owner-occupant'}
             />
+            <Fact label="SoS status" value={parcel.owner?.sosStatus || '—'} />
+            <Fact label="Registered agent" value={parcel.owner?.sosRegisteredAgent || '—'} />
           </dl>
+
+          {parcel.signals.length ? (
+            <div className="border-pine/50 mt-10 border-t pt-6">
+              <h3 className="font-display text-xl font-bold text-white">Signals</h3>
+              <ul className="mt-3 space-y-2">
+                {parcel.signals.map((s) => (
+                  <li key={s.id} className="text-sm text-mist">
+                    <span className="text-moss font-semibold">
+                      {SIGNAL_LABELS[s.type] || s.type}
+                    </span>
+                    <span className="text-fog ml-2 text-xs">{formatDate(s.detectedAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {contacts.length ? (
+            <div className="border-pine/50 mt-10 border-t pt-6">
+              <h3 className="font-display text-xl font-bold text-white">Contacts</h3>
+              <ul className="mt-3 space-y-2">
+                {contacts.map((c) => (
+                  <li key={c.id} className="text-sm text-mist">
+                    <span className="font-semibold text-white">{c.name || 'Unknown'}</span>
+                    {c.role ? <span className="text-fog"> · {c.role}</span> : null}
+                    {c.phone ? <span className="text-fog"> · {c.phone}</span> : null}
+                    {c.email ? <span className="text-fog"> · {c.email}</span> : null}
+                    <span className="text-fog ml-2 text-xs">({c.source})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {activeLead ? (
             <div className="border-pine/50 mt-10 border-t pt-6">
@@ -158,6 +207,11 @@ export function ParcelDetailPage() {
                     ['Entity', components.entity],
                     ['Multi-parcel', components.multiParcel],
                     ['Land use', components.landUsePriority],
+                    ['Tax delinquent', components.taxDelinquent ?? 0],
+                    ['Mortgage maturity', components.mortgageMaturity ?? 0],
+                    ['Foreclosure', components.foreclosure ?? 0],
+                    ['SoS boost', components.sosBoost ?? 0],
+                    ['FMV boost', components.fmvBoost ?? 0],
                   ] as const
                 ).map(([label, pts]) => (
                   <li key={label} className="flex justify-between border-b border-white/5 py-2">

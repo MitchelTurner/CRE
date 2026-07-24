@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ScoreComponents } from '@cre/shared';
+import { DEFAULT_DIGEST_FMV_FLOOR, type ScoreComponents } from '@cre/shared';
+import { AppConfigService } from '../app-config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { EmailService } from './email.service';
@@ -19,6 +20,7 @@ export class DigestService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly appConfig: AppConfigService,
     private readonly scoring: ScoringService,
     private readonly email: EmailService,
   ) {}
@@ -31,20 +33,28 @@ export class DigestService {
       landUseCode: string | null;
       propType: string | null;
       deedDate: Date | null;
+      fairMarketVal: number | null;
       score: number;
       components: ScoreComponents;
       ownerName: string;
       isEntity: boolean;
       isAbsentee: boolean;
       mailingState: string | null;
+      sosStatus: string | null;
       ownerParcelCount: number;
+      signalTypes: string[];
+      contactHint: string | null;
     }>
   > {
     const exclusionDays = this.config.get<number>('digestExclusionDays') ?? 90;
     const resendDelta = this.config.get<number>('digestResendScoreDelta') ?? 15;
+    const fmvFloor =
+      (await this.appConfig.getDigestFmvFloor()) ||
+      this.config.get<number>('digestFmvFloor') ||
+      DEFAULT_DIGEST_FMV_FLOOR;
     const cutoff = new Date(Date.now() - exclusionDays * 24 * 60 * 60 * 1000);
+    const now = new Date();
 
-    // Latest score per active commercial parcel via raw query for efficiency
     const latestScores = await this.prisma.$queryRaw<
       Array<{
         parcelId: string;
@@ -53,12 +63,14 @@ export class DigestService {
         landUseCode: string | null;
         propType: string | null;
         deedDate: Date | null;
+        fairMarketVal: number | null;
         total: number;
         components: ScoreComponents;
         ownerName: string | null;
         isEntity: boolean | null;
         isAbsentee: boolean | null;
         mailingState: string | null;
+        sosStatus: string | null;
         ownerId: string | null;
       }>
     >`
@@ -69,24 +81,26 @@ export class DigestService {
         p."landUseCode",
         p."propType",
         p."deedDate",
+        p."fairMarketVal",
         s.total,
         s.components,
         o."nameRaw" AS "ownerName",
         o."isEntity",
         o."isAbsentee",
         o."mailingState",
+        o."sosStatus",
         p."ownerId"
       FROM "Parcel" p
       INNER JOIN "Score" s ON s."parcelId" = p.id
       LEFT JOIN "Owner" o ON o.id = p."ownerId"
-      WHERE p."isActive" = true AND p."isCommercial" = true
+      WHERE p."isActive" = true
+        AND p."isCommercial" = true
+        AND (p."fairMarketVal" IS NULL OR p."fairMarketVal" >= ${fmvFloor})
       ORDER BY p.id, s."scoredAt" DESC
     `;
 
-    // Sort by score desc globally
     latestScores.sort((a, b) => b.total - a.total);
 
-    // Prior digest leads for exclusion
     const recentLeads = await this.prisma.lead.findMany({
       where: {
         createdAt: { gte: cutoff },
@@ -96,8 +110,6 @@ export class DigestService {
     });
     const recentlySent = new Set(recentLeads.map((l) => l.parcelId));
 
-    // Prior scores at last digest time approx: last lead's score snapshot not stored;
-    // use previous Score row before latest when checking +15 rule.
     const ownerIds = latestScores.map((r) => r.ownerId).filter((id): id is string => Boolean(id));
     const ownerCounts = await this.prisma.parcel.groupBy({
       by: ['ownerId'],
@@ -112,7 +124,6 @@ export class DigestService {
       if (selected.length >= limit) break;
 
       if (recentlySent.has(row.parcelId)) {
-        // Allow re-send only if score increased by resendDelta vs prior score
         const prior = await this.prisma.score.findMany({
           where: { parcelId: row.parcelId },
           orderBy: { scoredAt: 'desc' },
@@ -130,6 +141,32 @@ export class DigestService {
       });
     }
 
+    const parcelIds = selected.map((r) => r.parcelId);
+    const signals = await this.prisma.signal.findMany({
+      where: {
+        parcelId: { in: parcelIds },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+      select: { parcelId: true, type: true },
+    });
+    const signalsByParcel = new Map<string, string[]>();
+    for (const s of signals) {
+      const list = signalsByParcel.get(s.parcelId) ?? [];
+      list.push(s.type);
+      signalsByParcel.set(s.parcelId, list);
+    }
+
+    const contacts = await this.prisma.contact.findMany({
+      where: { ownerId: { in: ownerIds } },
+      orderBy: { createdAt: 'desc' },
+    });
+    const contactByOwner = new Map<string, string>();
+    for (const c of contacts) {
+      if (contactByOwner.has(c.ownerId)) continue;
+      const bits = [c.name, c.phone, c.email].filter(Boolean);
+      if (bits.length) contactByOwner.set(c.ownerId, bits.join(' / '));
+    }
+
     return selected.map((r) => ({
       parcelId: r.parcelId,
       pin: r.pin,
@@ -137,13 +174,17 @@ export class DigestService {
       landUseCode: r.landUseCode,
       propType: r.propType,
       deedDate: r.deedDate,
+      fairMarketVal: r.fairMarketVal,
       score: r.total,
       components: r.components,
       ownerName: r.ownerName ?? 'UNKNOWN',
       isEntity: r.isEntity ?? false,
       isAbsentee: r.isAbsentee ?? false,
       mailingState: r.mailingState,
+      sosStatus: r.sosStatus,
       ownerParcelCount: r.ownerParcelCount,
+      signalTypes: [...new Set(signalsByParcel.get(r.parcelId) ?? [])],
+      contactHint: r.ownerId ? (contactByOwner.get(r.ownerId) ?? null) : null,
     }));
   }
 
@@ -168,6 +209,9 @@ export class DigestService {
         landUseCode: c.landUseCode,
         propType: c.propType,
         components: c.components,
+        signalTypes: c.signalTypes,
+        sosStatus: c.sosStatus,
+        contactHint: c.contactHint,
       });
 
       return {
@@ -205,6 +249,7 @@ export class DigestService {
         data: {
           parcelId: c.parcelId,
           status: 'sent',
+          leadType: 'seller',
           digestId: digest.id,
           whyNow: leadRow.whyNow,
         },

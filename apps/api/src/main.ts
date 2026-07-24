@@ -6,6 +6,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/http-exception.filter';
+import { runMigrations } from './prisma/run-migrations';
 
 function deployMeta() {
   return {
@@ -50,6 +51,15 @@ async function bootstrap(): Promise<void> {
     logger.warn(
       'No Redis env vars set — falling back to redis://localhost:6379 (will fail on Railway)',
     );
+  }
+
+  // Ensure schema exists even if the container start command skipped the entrypoint.
+  try {
+    runMigrations();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Prisma migrate deploy failed: ${message}`);
+    process.exit(1);
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

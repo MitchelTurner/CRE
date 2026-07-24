@@ -31,15 +31,22 @@ export function AdminPage() {
     setError(null);
     setMessage(null);
     try {
-      await fn();
-      setMessage(`${label} succeeded`);
+      const result = await fn();
+      const note =
+        result &&
+        typeof result === 'object' &&
+        'note' in result &&
+        typeof (result as { note?: unknown }).note === 'string'
+          ? (result as { note: string }).note
+          : null;
+      setMessage(note ?? `${label} enqueued`);
       try {
         await refreshRuns();
       } catch (refreshErr) {
         setError(
           refreshErr instanceof Error
-            ? `${label} succeeded, but refreshing history failed: ${refreshErr.message}`
-            : `${label} succeeded, but refreshing history failed`,
+            ? `Job was queued, but reading history failed: ${refreshErr.message}`
+            : 'Job was queued, but reading history failed',
         );
       }
     } catch (err) {

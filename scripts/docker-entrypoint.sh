@@ -25,8 +25,24 @@ else
   echo "[entrypoint] Using REDISHOST/REDISPORT for BullMQ"
 fi
 
+SCHEMA_PATH="${PRISMA_SCHEMA:-prisma/schema.prisma}"
+if [ ! -f "$SCHEMA_PATH" ]; then
+  echo "[entrypoint] ERROR: Prisma schema not found at $SCHEMA_PATH" >&2
+  ls -la prisma || true
+  exit 1
+fi
+
+echo "[entrypoint] Prisma migrations present:"
+ls -la prisma/migrations || {
+  echo "[entrypoint] ERROR: prisma/migrations missing from image" >&2
+  exit 1
+}
+
 echo "[entrypoint] Running prisma migrate deploy..."
-npx prisma migrate deploy
+npx prisma migrate deploy --schema "$SCHEMA_PATH"
+
+echo "[entrypoint] Migration status:"
+npx prisma migrate status --schema "$SCHEMA_PATH" || true
 
 echo "[entrypoint] Starting Nest API..."
 exec node apps/api/dist/main.js

@@ -28,7 +28,12 @@ export class AdminController {
         removeOnFail: 50,
       },
     );
-    return { enqueued: true, jobId: job.id, jobName: JOBS.PARCELS_FULL_SYNC };
+    return {
+      enqueued: true,
+      jobId: job.id,
+      jobName: JOBS.PARCELS_FULL_SYNC,
+      note: 'Job queued — watch Recent sync runs for success/failed (full county pull can take several minutes).',
+    };
   }
 
   @Get('sync-runs')

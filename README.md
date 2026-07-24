@@ -127,6 +127,8 @@ See `.env.example`. County-specific values (layer URL, field map, land-use codes
 - Postgres not linked / migrate failed
 - No public domain assigned to the service
 
+**“table does not exist” / SyncRun missing:** migrations did not apply. Redeploy (boot runs `prisma migrate deploy`). In Railway, do **not** override the start command away from `/docker-entrypoint.sh` unless the app itself still runs migrations. Confirm Deploy Logs show `Applying migrations` / `Migrations up to date`.
+
 ## Legal / etiquette
 
 - Sources are public records; usage mirrors industry CRE data products.

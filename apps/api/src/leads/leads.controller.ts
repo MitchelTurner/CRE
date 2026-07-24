@@ -1,11 +1,15 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTokenGuard } from '../auth/api-token.guard';
 import { LeadsService } from './leads.service';
+import { OutreachService } from './outreach.service';
 
 @Controller('leads')
 @UseGuards(ApiTokenGuard)
 export class LeadsController {
-  constructor(private readonly leads: LeadsService) {}
+  constructor(
+    private readonly leads: LeadsService,
+    private readonly outreach: OutreachService,
+  ) {}
 
   @Get()
   list(@Query('status') status?: string) {
@@ -29,5 +33,10 @@ export class LeadsController {
     @Body('note') note?: string,
   ) {
     return this.leads.addFeedback(id, rating, note);
+  }
+
+  @Get(':id/outreach')
+  outreachDrafts(@Param('id') id: string) {
+    return this.outreach.draftsForLead(id);
   }
 }

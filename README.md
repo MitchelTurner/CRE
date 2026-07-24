@@ -4,7 +4,7 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 
 **Core thesis:** investment-sales leads are property owners who are statistically likely to sell — predictable from hold period, absentee ownership, land use, loan maturity, and distress signals.
 
-## Status (v2)
+## Status (v3)
 
 | Milestone | Status |
 |---|---|
@@ -12,6 +12,7 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 | M1 — Ingestion (ArcGIS → Postgres) | Done |
 | M2 — Scoring + weekly digest | Done |
 | M3 — ROD / SoS / skip-trace / dashboard | Done (providers optional via env) |
+| M4 — Portfolio graph, catalysts, map, HITL, CRM, feedback tuning | Done (feeds optional via env) |
 
 ### M0 findings (layer 52)
 
@@ -86,9 +87,9 @@ npm run start:dev -w @cre/api
 - `POST /admin/digest/preview`
 - `POST /admin/digest/send`
 
-## Scoring (v2)
+## Scoring (v3)
 
-Tunable via `AppConfig` (`score_weights`, `landuse_priority`, `digest_fmv_floor`, …):
+Tunable via `AppConfig` (`score_weights`, `landuse_priority`, `digest_fmv_floor`, …). Feedback thumbs-down can nudge weights via `POST /admin/tune-weights`.
 
 | Component | Points |
 |---|---|
@@ -102,8 +103,15 @@ Tunable via `AppConfig` (`score_weights`, `landuse_priority`, `digest_fmv_floor`
 | Foreclosure | 0–25 |
 | SoS dissolved / resolved | 10 / 3 |
 | FMV band boost | 0–5 |
+| OOS long-hold decay | 0–10 |
+| Portfolio / related-entity cluster | 0–8 |
+| Zoning / permits / listings / probate / flood | signal-weighted |
 
-Total capped at 100. Digest filters `fairMarketVal >= DIGEST_FMV_FLOOR` (default $250k).
+Total capped at 100. Digest splits **Hot this week** (catalyst signals) vs evergreen. FMV floor default $250k.
+
+**v3 UI:** Map, enrichment Review queue, outreach drafts on parcel detail, Admin tune-weights + CRM sync.
+
+**Second county:** set `COUNTY_SLUG=spartanburg` (scaffold) and verify field map with `npm run inspect:layer`.
 
 ## Enrichment providers (optional)
 

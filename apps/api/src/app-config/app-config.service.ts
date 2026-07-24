@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   CONFIG_KEYS,
   DEFAULT_DIGEST_FMV_FLOOR,
+  mergeScoreWeights,
   type FieldMap,
   type ScoreWeights,
 } from '@cre/shared';
@@ -69,10 +70,11 @@ export class AppConfigService implements OnModuleInit {
   }
 
   async getScoreWeights(): Promise<ScoreWeights> {
-    return this.getJson(
+    const raw = await this.getJson<Partial<ScoreWeights>>(
       CONFIG_KEYS.SCORE_WEIGHTS,
       this.config.getOrThrow<ScoreWeights>('defaults.scoreWeights'),
     );
+    return mergeScoreWeights(raw);
   }
 
   async getLandUsePriority(): Promise<Record<string, number>> {

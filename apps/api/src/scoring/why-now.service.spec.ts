@@ -26,6 +26,13 @@ describe('WhyNowService', () => {
         recentSeller: 0,
         sosBoost: 0,
         fmvBoost: 0,
+        oosDecay: 8,
+        portfolioCluster: 0,
+        zoningWatch: 0,
+        permitActivity: 0,
+        nearbyListing: 0,
+        probateEstate: 0,
+        floodRisk: 0,
       },
       signalTypes: ['tax_delinquent', 'mortgage_maturity'],
     });

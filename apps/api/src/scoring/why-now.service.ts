@@ -17,9 +17,6 @@ export interface WhyNowInput {
   contactHint?: string | null;
 }
 
-/**
- * Template-based whyNow. Kept as a service so an LLM can slot in later.
- */
 @Injectable()
 export class WhyNowService {
   generate(input: WhyNowInput): string {
@@ -73,10 +70,25 @@ export class WhyNowService {
     if (signals.has('mortgage_maturity') || (input.components.mortgageMaturity ?? 0) > 0) {
       catalysts.push('inferred loan maturity window');
     }
+    if (signals.has('zoning_change') || (input.components.zoningWatch ?? 0) > 0) {
+      catalysts.push('nearby zoning / land-use change');
+    }
+    if (signals.has('permit_activity') || (input.components.permitActivity ?? 0) > 0) {
+      catalysts.push('recent commercial permit activity');
+    }
+    if (signals.has('nearby_listing') || (input.components.nearbyListing ?? 0) > 0) {
+      catalysts.push('nearby listing / sale activity');
+    }
+    if (signals.has('probate_estate') || (input.components.probateEstate ?? 0) > 0) {
+      catalysts.push('possible estate / probate');
+    }
     if (signals.has('sos_dissolved')) {
       catalysts.push(`SoS status ${input.sosStatus || 'dissolved/inactive'}`);
     } else if (signals.has('recent_seller')) {
       catalysts.push('recent deed / possible 1031 clock');
+    }
+    if ((input.components.oosDecay ?? 0) > 0) {
+      catalysts.push('long-hold out-of-state landlord');
     }
     if (input.contactHint) {
       catalysts.push(`contact: ${input.contactHint}`);

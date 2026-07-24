@@ -3,7 +3,9 @@ import { useAuth } from '../state/auth';
 
 const links = [
   { to: '/parcels', label: 'Parcels' },
+  { to: '/map', label: 'Map' },
   { to: '/pipeline', label: 'Pipeline' },
+  { to: '/review', label: 'Review' },
   { to: '/admin', label: 'Admin' },
 ];
 

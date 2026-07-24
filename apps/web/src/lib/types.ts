@@ -27,6 +27,13 @@ export interface ScoreComponents {
   recentSeller?: number;
   sosBoost?: number;
   fmvBoost?: number;
+  oosDecay?: number;
+  portfolioCluster?: number;
+  zoningWatch?: number;
+  permitActivity?: number;
+  nearbyListing?: number;
+  probateEstate?: number;
+  floodRisk?: number;
   missingDeedDate?: boolean;
 }
 
@@ -43,6 +50,9 @@ export interface ParcelDetail {
   salePrice: number | null;
   totalTax: number | null;
   paidDate: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  floodZone: string | null;
   isCommercial: boolean;
   isActive: boolean;
   owner: {
@@ -53,6 +63,9 @@ export interface ParcelDetail {
     mailingState: string | null;
     isEntity: boolean;
     isAbsentee: boolean;
+    clusterKey?: string | null;
+    portfolioScore?: number | null;
+    relatedOwnerIds?: string[] | null;
     sosEntityId?: string | null;
     sosStatus?: string | null;
     sosRegisteredAgent?: string | null;
@@ -139,5 +152,45 @@ export interface DigestPreview {
     score: number;
     whyNow: string;
     ownerName: string;
+    hot?: boolean;
   }>;
+  hotLeads?: DigestPreview['leads'];
+  evergreenLeads?: DigestPreview['leads'];
+}
+
+export interface MapPoint {
+  id: string;
+  pin: string;
+  situsAddress: string | null;
+  latitude: number;
+  longitude: number;
+  score: number | null;
+  propType: string | null;
+}
+
+export interface OutreachDrafts {
+  pin: string;
+  callScript: string;
+  emailSubject: string;
+  emailBody: string;
+  contact: {
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    role: string | null;
+    source: string;
+  } | null;
+}
+
+export interface HitlReview {
+  id: string;
+  status: string;
+  reasons: string[];
+  note: string | null;
+  parcel: {
+    pin: string;
+    situsAddress: string | null;
+    owner: { nameRaw: string } | null;
+    scores: Array<{ total: number }>;
+  };
 }

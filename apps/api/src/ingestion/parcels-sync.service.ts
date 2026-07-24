@@ -92,6 +92,7 @@ export class ParcelsSyncService {
             mailingZip: mapped.owner.mailingZip,
             isEntity: mapped.owner.isEntity,
             isAbsentee: mapped.owner.isAbsentee,
+            clusterKey: mapped.owner.clusterKey,
           },
           update: {
             nameRaw: mapped.owner.nameRaw,
@@ -100,6 +101,7 @@ export class ParcelsSyncService {
             mailingZip: mapped.owner.mailingZip,
             isEntity: mapped.owner.isEntity,
             isAbsentee: mapped.owner.isAbsentee,
+            clusterKey: mapped.owner.clusterKey,
           },
         });
 
@@ -117,6 +119,8 @@ export class ParcelsSyncService {
             salePrice: mapped.salePrice,
             totalTax: mapped.totalTax,
             paidDate: mapped.paidDate,
+            latitude: mapped.latitude,
+            longitude: mapped.longitude,
             rawAttributes: mapped.rawAttributes as Prisma.InputJsonValue,
             isCommercial: mapped.isCommercial,
             isActive: true,
@@ -133,6 +137,8 @@ export class ParcelsSyncService {
             salePrice: mapped.salePrice,
             totalTax: mapped.totalTax,
             paidDate: mapped.paidDate,
+            latitude: mapped.latitude,
+            longitude: mapped.longitude,
             rawAttributes: mapped.rawAttributes as Prisma.InputJsonValue,
             isCommercial: mapped.isCommercial,
             isActive: true,

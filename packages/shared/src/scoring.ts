@@ -89,17 +89,61 @@ export function scoreFmvBoost(
   return 0;
 }
 
+/**
+ * Extra points for out-of-state landlords with long holds:
+ * yearsHeld × distance-from-home proxy (state mismatch).
+ */
+export function scoreOosDecay(input: {
+  deedDate: Date | null | undefined;
+  mailingState?: string | null;
+  homeState?: string;
+  isAbsentee?: boolean;
+  maxPoints?: number;
+  asOf?: Date;
+}): number {
+  const maxPoints = input.maxPoints ?? DEFAULT_SCORE_WEIGHTS.oosDecayMax;
+  const homeState = input.homeState ?? 'SC';
+  if (!input.isAbsentee || !isOutOfState(input.mailingState, homeState)) return 0;
+  const years = yearsSince(input.deedDate, input.asOf);
+  if (years === null || years < 7) return 0;
+  if (years >= 20) return maxPoints;
+  if (years >= 15) return Math.round(maxPoints * 0.8);
+  if (years >= 10) return Math.round(maxPoints * 0.55);
+  return Math.round(maxPoints * 0.35);
+}
+
+/** Related owners / shared agent / mailing cluster size. */
+export function scorePortfolioCluster(
+  relatedCommercialParcelCount: number,
+  maxPoints = DEFAULT_SCORE_WEIGHTS.portfolioClusterMax,
+): number {
+  if (relatedCommercialParcelCount >= 10) return maxPoints;
+  if (relatedCommercialParcelCount >= 6) return Math.round(maxPoints * 0.75);
+  if (relatedCommercialParcelCount >= 3) return Math.round(maxPoints * 0.5);
+  return 0;
+}
+
 export function scoreSignals(
   signalTypes: SignalType[],
   weights: ScoreWeights = DEFAULT_SCORE_WEIGHTS,
 ): Pick<
   ScoreComponents,
-  'mortgageMaturity' | 'foreclosure' | 'recentSeller' | 'sosBoost' | 'taxDelinquent'
+  | 'mortgageMaturity'
+  | 'foreclosure'
+  | 'recentSeller'
+  | 'sosBoost'
+  | 'taxDelinquent'
+  | 'zoningWatch'
+  | 'permitActivity'
+  | 'nearbyListing'
+  | 'probateEstate'
+  | 'floodRisk'
+  | 'portfolioCluster'
 > {
   const set = new Set(signalTypes);
   return {
     mortgageMaturity: set.has('mortgage_maturity') ? weights.mortgageMaturity : 0,
-    foreclosure: set.has('foreclosure') ? weights.foreclosure : 0,
+    foreclosure: set.has('foreclosure') || set.has('tax_sale') ? weights.foreclosure : 0,
     recentSeller: set.has('recent_seller') ? weights.recentSeller : 0,
     sosBoost: set.has('sos_dissolved')
       ? weights.sosDissolved
@@ -107,6 +151,12 @@ export function scoreSignals(
         ? weights.sosResolved
         : 0,
     taxDelinquent: set.has('tax_delinquent') ? weights.taxDelinquent : 0,
+    zoningWatch: set.has('zoning_change') ? weights.zoningWatch : 0,
+    permitActivity: set.has('permit_activity') ? weights.permitActivity : 0,
+    nearbyListing: set.has('nearby_listing') ? weights.nearbyListing : 0,
+    probateEstate: set.has('probate_estate') ? weights.probateEstate : 0,
+    floodRisk: set.has('flood_zone') ? weights.floodRisk : 0,
+    portfolioCluster: set.has('related_entity') ? Math.round(weights.portfolioClusterMax * 0.5) : 0,
   };
 }
 
@@ -122,7 +172,14 @@ export function computeTotal(components: ScoreComponents): number {
     components.foreclosure +
     components.recentSeller +
     components.sosBoost +
-    components.fmvBoost;
+    components.fmvBoost +
+    components.oosDecay +
+    components.portfolioCluster +
+    components.zoningWatch +
+    components.permitActivity +
+    components.nearbyListing +
+    components.probateEstate +
+    components.floodRisk;
   return Math.min(100, Math.max(0, Math.round(total)));
 }
 
@@ -133,6 +190,7 @@ export function scoreParcel(input: {
   mailingState?: string | null | undefined;
   ownerName: string;
   activeCommercialParcelCount: number;
+  relatedCommercialParcelCount?: number;
   landUseCode: string | null | undefined;
   landUsePriorityMap: Record<string, number>;
   paidDate?: Date | null;
@@ -146,23 +204,27 @@ export function scoreParcel(input: {
   const weights = input.weights ?? DEFAULT_SCORE_WEIGHTS;
   const hold = scoreHoldPeriod(input.deedDate, input.asOf, weights.holdPeriodMax);
   const fromSignals = scoreSignals(input.signalTypes ?? [], weights);
+  const absentee = scoreAbsentee({
+    mailingStreet: input.mailingStreet,
+    situsAddress: input.situsAddress,
+    mailingState: input.mailingState,
+    homeState: input.homeState,
+    weights,
+  });
 
-  // Prefer explicit tax signal; else derive from parcel fields.
   const taxFromFields = scoreTaxDelinquent({
     paidDate: input.paidDate,
     totalTax: input.totalTax,
     points: weights.taxDelinquent,
   });
 
+  const relatedCount =
+    input.relatedCommercialParcelCount ?? input.activeCommercialParcelCount;
+  const clusterFromCount = scorePortfolioCluster(relatedCount, weights.portfolioClusterMax);
+
   const components: ScoreComponents = {
     holdPeriod: hold.points,
-    absentee: scoreAbsentee({
-      mailingStreet: input.mailingStreet,
-      situsAddress: input.situsAddress,
-      mailingState: input.mailingState,
-      homeState: input.homeState,
-      weights,
-    }),
+    absentee,
     entity: scoreEntity(input.ownerName, weights.entity),
     multiParcel: scoreMultiParcel(input.activeCommercialParcelCount, weights.multiParcel),
     landUsePriority: scoreLandUsePriority(
@@ -176,6 +238,20 @@ export function scoreParcel(input: {
     recentSeller: fromSignals.recentSeller,
     sosBoost: fromSignals.sosBoost,
     fmvBoost: scoreFmvBoost(input.fairMarketVal, weights.fmvBoostMax),
+    oosDecay: scoreOosDecay({
+      deedDate: input.deedDate,
+      mailingState: input.mailingState,
+      homeState: input.homeState,
+      isAbsentee: absentee > 0,
+      maxPoints: weights.oosDecayMax,
+      asOf: input.asOf,
+    }),
+    portfolioCluster: Math.max(clusterFromCount, fromSignals.portfolioCluster),
+    zoningWatch: fromSignals.zoningWatch,
+    permitActivity: fromSignals.permitActivity,
+    nearbyListing: fromSignals.nearbyListing,
+    probateEstate: fromSignals.probateEstate,
+    floodRisk: fromSignals.floodRisk,
   };
 
   if (hold.missingDeedDate) components.missingDeedDate = true;
@@ -199,4 +275,9 @@ export function isMaturityWithinMonths(
   const ms = maturity.getTime() - asOf.getTime();
   const monthMs = 30.44 * 24 * 60 * 60 * 1000;
   return ms >= -monthMs && ms <= months * monthMs;
+}
+
+/** Merge stored AppConfig weights with defaults so v2 rows still work. */
+export function mergeScoreWeights(partial: Partial<ScoreWeights> | null | undefined): ScoreWeights {
+  return { ...DEFAULT_SCORE_WEIGHTS, ...(partial ?? {}) };
 }

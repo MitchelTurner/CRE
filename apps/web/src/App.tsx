@@ -7,6 +7,8 @@ import { ParcelsPage } from './screens/ParcelsPage';
 import { ParcelDetailPage } from './screens/ParcelDetailPage';
 import { PipelinePage } from './screens/PipelinePage';
 import { AdminPage } from './screens/AdminPage';
+import { MapPage } from './screens/MapPage';
+import { HitlPage } from './screens/HitlPage';
 
 function Protected({ children }: { children: ReactNode }) {
   const { ready, authenticated } = useAuth();
@@ -37,7 +39,9 @@ export default function App() {
           <Route index element={<Navigate to="/parcels" replace />} />
           <Route path="parcels" element={<ParcelsPage />} />
           <Route path="parcels/:pin" element={<ParcelDetailPage />} />
+          <Route path="map" element={<MapPage />} />
           <Route path="pipeline" element={<PipelinePage />} />
+          <Route path="review" element={<HitlPage />} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

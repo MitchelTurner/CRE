@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Parcel {
+  id            String   @id @default(cuid())
+  pin           String   @unique
+  situsAddress  String?
+  landUseCode   String?
+  landUseDesc   String?
+  propType      String?
+  subdivision   String?
+  deedDate      DateTime?
+  fairMarketVal Int?
+  rawAttributes Json
+  owner         Owner?   @relation(fields: [ownerId], references: [id])
+  ownerId       String?
+  scores        Score[]
+  signals       Signal[]
+  leads         Lead[]
+  firstSeenAt   DateTime @default(now())
+  lastSyncedAt  DateTime @updatedAt
+  isCommercial  Boolean  @default(false)
+  isActive      Boolean  @default(true)
+
+  @@index([landUseCode])
+  @@index([isCommercial, isActive])
+  @@index([ownerId])
+}
+
+model Owner {
+  id             String    @id @default(cuid())
+  nameRaw        String
+  nameNormalized String
+  mailingAddress String    @default("") // empty string when unknown; part of dedupe key
+  mailingCity    String?
+  mailingState   String?
+  mailingZip     String?
+  isEntity       Boolean   @default(false)
+  isAbsentee     Boolean   @default(false)
+  parcels        Parcel[]
+  contacts       Contact[]
+
+  @@index([nameNormalized])
+  @@unique([nameNormalized, mailingAddress])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  owner     Owner    @relation(fields: [ownerId], references: [id])
+  ownerId   String
+  name      String?
+  role      String?
+  phone     String?
+  email     String?
+  source    String
+  createdAt DateTime @default(now())
+}
+
+model Score {
+  id           String   @id @default(cuid())
+  parcel       Parcel   @relation(fields: [parcelId], references: [id])
+  parcelId     String
+  total        Int
+  components   Json
+  scoredAt     DateTime @default(now())
+  scoreVersion String
+
+  @@index([parcelId, scoredAt])
+  @@index([total])
+}
+
+model Signal {
+  id         String    @id @default(cuid())
+  parcel     Parcel    @relation(fields: [parcelId], references: [id])
+  parcelId   String
+  type       String
+  payload    Json
+  detectedAt DateTime  @default(now())
+  expiresAt  DateTime?
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  parcel    Parcel   @relation(fields: [parcelId], references: [id])
+  parcelId  String
+  status    String   @default("new")
+  digestId  String?
+  whyNow    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([parcelId])
+}
+
+model Digest {
+  id        String    @id @default(cuid())
+  sentAt    DateTime?
+  leadCount Int
+  htmlBody  String
+}
+
+model SyncRun {
+  id              String    @id @default(cuid())
+  source          String
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  status          String
+  recordsSeen     Int       @default(0)
+  recordsUpserted Int       @default(0)
+  error           String?
+}
+
+model AppConfig {
+  key   String @id
+  value Json
+}

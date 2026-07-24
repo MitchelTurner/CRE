@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+coverage/
+.turbo/
+data/layer-inspection.json
+.DS_Store
+*.tsbuildinfo
+.prisma/
+packages/shared/src/**/*.js
+packages/shared/src/**/*.d.ts
+packages/shared/src/**/*.map

@@ -1,0 +1,43 @@
+{
+  "features": [
+    {
+      "attributes": {
+        "OBJECTID": 1,
+        "PIN": "0123000100100",
+        "OWNAM1": "ACME HOLDINGS LLC",
+        "OWNAM2": null,
+        "STREET": "100 MAIN ST",
+        "CITY": "ATLANTA",
+        "STATE": "GA",
+        "ZIP5": "30301",
+        "DEEDDATE": 978307200000,
+        "LANDUSE": "421",
+        "SUBDIV": null,
+        "STRNUM": "500",
+        "LOCATE": "PEARL AVE",
+        "PROPTYPE": "COMMERCIAL",
+        "FAIRMKTVAL": 1250000
+      }
+    },
+    {
+      "attributes": {
+        "OBJECTID": 2,
+        "PIN": "0123000100200",
+        "OWNAM1": "ACME HOLDINGS LLC",
+        "OWNAM2": null,
+        "STREET": "100 MAIN ST",
+        "CITY": "ATLANTA",
+        "STATE": "GA",
+        "ZIP5": "30301",
+        "DEEDDATE": 1104537600000,
+        "LANDUSE": "940",
+        "SUBDIV": null,
+        "STRNUM": "12",
+        "LOCATE": "INDUSTRIAL BLVD",
+        "PROPTYPE": "INDUSTRIAL",
+        "FAIRMKTVAL": 890000
+      }
+    }
+  ],
+  "exceededTransferLimit": true
+}

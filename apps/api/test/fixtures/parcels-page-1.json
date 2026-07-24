@@ -1,0 +1,43 @@
+{
+  "features": [
+    {
+      "attributes": {
+        "OBJECTID": 3,
+        "PIN": "0123000100300",
+        "OWNAM1": "ACME HOLDINGS LLC",
+        "OWNAM2": null,
+        "STREET": "100 MAIN ST",
+        "CITY": "ATLANTA",
+        "STATE": "GA",
+        "ZIP5": "30301",
+        "DEEDDATE": 946684800000,
+        "LANDUSE": "110",
+        "SUBDIV": null,
+        "STRNUM": "88",
+        "LOCATE": "OAK ST",
+        "PROPTYPE": "MULTI-FAMILY",
+        "FAIRMKTVAL": 2100000
+      }
+    },
+    {
+      "attributes": {
+        "OBJECTID": 4,
+        "PIN": "0123000100400",
+        "OWNAM1": "JANE HOMEOWNER",
+        "OWNAM2": null,
+        "STREET": "200 ELM ST",
+        "CITY": "GREENVILLE",
+        "STATE": "SC",
+        "ZIP5": "29601",
+        "DEEDDATE": 1704067200000,
+        "LANDUSE": "520",
+        "SUBDIV": null,
+        "STRNUM": "200",
+        "LOCATE": "ELM ST",
+        "PROPTYPE": "COMMERCIAL",
+        "FAIRMKTVAL": 450000
+      }
+    }
+  ],
+  "exceededTransferLimit": false
+}

@@ -1,0 +1,9 @@
+export const CONFIG_KEYS = {
+  COMMERCIAL_LANDUSE_CODES: 'commercial_landuse_codes',
+  COMMERCIAL_PROP_TYPES: 'commercial_prop_types',
+  SCORE_WEIGHTS: 'score_weights',
+  LANDUSE_PRIORITY: 'landuse_priority',
+  FIELD_MAP: 'field_map',
+} as const;
+
+export type ConfigKey = (typeof CONFIG_KEYS)[keyof typeof CONFIG_KEYS];

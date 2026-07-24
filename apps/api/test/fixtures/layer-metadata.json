@@ -1,0 +1,26 @@
+{
+  "name": "Tax Parcel",
+  "maxRecordCount": 2,
+  "advancedQueryCapabilities": {
+    "supportsPagination": true,
+    "supportsDistinct": true,
+    "supportsOrderBy": true
+  },
+  "fields": [
+    { "name": "PIN", "type": "esriFieldTypeString", "alias": "PIN / Tax Map #" },
+    { "name": "OWNAM1", "type": "esriFieldTypeString", "alias": "Owner Name(MixedCase)" },
+    { "name": "OWNAM2", "type": "esriFieldTypeString", "alias": "Owner Name 2(MixedCase)" },
+    { "name": "STREET", "type": "esriFieldTypeString", "alias": "Mailing Address(MixedCase)" },
+    { "name": "CITY", "type": "esriFieldTypeString", "alias": "City(MixedCase)" },
+    { "name": "STATE", "type": "esriFieldTypeString", "alias": "State" },
+    { "name": "ZIP5", "type": "esriFieldTypeString", "alias": "Zip Code" },
+    { "name": "DEEDDATE", "type": "esriFieldTypeDate", "alias": "Deed Date(ShortDate)" },
+    { "name": "LANDUSE", "type": "esriFieldTypeString", "alias": "Land Use" },
+    { "name": "SUBDIV", "type": "esriFieldTypeString", "alias": "Subdivision(MixedCase)" },
+    { "name": "STRNUM", "type": "esriFieldTypeString", "alias": "Site Address Number" },
+    { "name": "LOCATE", "type": "esriFieldTypeString", "alias": "Site Address Street" },
+    { "name": "PROPTYPE", "type": "esriFieldTypeString", "alias": "PROPTYPE" },
+    { "name": "FAIRMKTVAL", "type": "esriFieldTypeInteger", "alias": "Fair Market Value(Money)" },
+    { "name": "OBJECTID", "type": "esriFieldTypeOID", "alias": "OBJECTID" }
+  ]
+}

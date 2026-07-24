@@ -1,0 +1,30 @@
+{
+  "inspectedAt": "2026-07-24T14:56:00.000Z",
+  "layerUrl": "https://www.gcgis.org/arcgis/rest/services/GreenvilleJS/Map_Layers_JS/MapServer/52",
+  "layerName": "Tax Parcel",
+  "maxRecordCount": 5000,
+  "supportsPagination": true,
+  "totalParcels": 243750,
+  "fieldMappingNotes": {
+    "STREET": "Mailing address (not situs)",
+    "STRNUM_LOCATE": "Situs / site address = STRNUM + LOCATE",
+    "CITY_STATE_ZIP5": "Owner mailing city/state/zip — absentee scoring available in v1",
+    "PROPTYPE": "Preferred commercial filter: COMMERCIAL (12400), INDUSTRIAL (2272), MULTI-FAMILY (1607)",
+    "DEEDDATE": "Epoch ms date field"
+  },
+  "propTypeCounts": {
+    "AGRICULTURAL": 2101,
+    "COMMERCIAL": 12400,
+    "INDUSTRIAL": 2272,
+    "MOBILE HOME": null,
+    "MULTI-FAMILY": 1607,
+    "OTHER": 1983,
+    "RESIDENTIAL": 214489
+  },
+  "openQuestions": {
+    "realPropertyDeepLink": "County Real Property search is ASP.NET form POST — no stable PIN deep-link found; digest links to search homepage.",
+    "commercialCodesNeedAgentReview": true,
+    "multifamilyIncludedByDefault": true,
+    "mailingAddressOnLayer52": true
+  }
+}

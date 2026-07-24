@@ -9,9 +9,14 @@ async function bootstrap(): Promise<void> {
     logger.error('DATABASE_URL is not set — refusing to start');
     process.exit(1);
   }
-  if (!process.env.REDIS_URL && !process.env.REDIS_PRIVATE_URL) {
+  if (
+    !process.env.REDIS_URL &&
+    !process.env.REDIS_PRIVATE_URL &&
+    !process.env.REDISHOST &&
+    !process.env.REDIS_HOST
+  ) {
     logger.warn(
-      'REDIS_URL/REDIS_PRIVATE_URL not set — falling back to redis://localhost:6379 (will fail on Railway)',
+      'No Redis env vars set — falling back to redis://localhost:6379 (will fail on Railway)',
     );
   }
 

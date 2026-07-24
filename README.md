@@ -104,11 +104,15 @@ See `.env.example`. County-specific values (layer URL, field map, land-use codes
 
 ## Deploy (Railway)
 
-1. Provision **Postgres** and **Redis** plugins and link them to the web service (so `DATABASE_URL` and `REDIS_URL` are injected).
-2. Set at least: `API_TOKEN`, `DIGEST_RECIPIENTS`, `DIGEST_FROM`, and optionally `RESEND_API_KEY`.
-3. Deploy via the repo `Dockerfile` (web + worker are one process in v1). Entrypoint runs `prisma migrate deploy` then starts Nest on `0.0.0.0:$PORT`.
+1. Provision **Postgres** and **Redis** plugins and **link both** to the web service (`DATABASE_URL` + `REDIS_URL` / `REDIS_PRIVATE_URL`).
+2. Generate a public domain on the web service (Settings → Networking → Generate Domain).
+3. Set at least: `API_TOKEN`, `DIGEST_RECIPIENTS`, `DIGEST_FROM`, and optionally `RESEND_API_KEY`.
+4. Deploy via the repo `Dockerfile` (web + worker are one process in v1). Entrypoint runs `prisma migrate deploy` then starts Nest on `0.0.0.0:$PORT`.
 
-If the healthcheck fails with “service unavailable”, check deploy logs for missing `DATABASE_URL` / `REDIS_URL` — the process will not bind a port until both are present.
+**Railway “train has not arrived”** means nothing healthy is behind the domain — usually a crashed deploy. Check Deploy Logs. Common causes:
+- Redis not linked (or app connecting to `localhost` because Redis URL was passed incorrectly)
+- Postgres not linked / migrate failed
+- No public domain assigned to the service
 
 ## Legal / etiquette
 

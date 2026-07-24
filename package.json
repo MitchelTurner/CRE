@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @cre/shared && npm run build -w @cre/api",
+    "build": "npm run build -w @cre/shared && npm run build -w @cre/web && npm run build -w @cre/api",
+    "dev:web": "npm run dev -w @cre/web",
+    "dev:api": "npm run start:dev -w @cre/api",
     "start:dev": "npm run start:dev -w @cre/api",
     "start:prod": "npm run start:prod -w @cre/api",
     "test": "npm run test -w @cre/api",

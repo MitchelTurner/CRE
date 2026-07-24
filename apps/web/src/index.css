@@ -1,0 +1,115 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-body: 'Figtree', system-ui, sans-serif;
+  --color-ink: #0b1210;
+  --color-ink-2: #13201b;
+  --color-pine: #1f4d3a;
+  --color-pine-soft: #2a6b50;
+  --color-moss: #c6f07a;
+  --color-moss-dim: #9bc45a;
+  --color-brass: #e0b85a;
+  --color-mist: #dce5df;
+  --color-fog: #9aada3;
+  --color-danger: #e07a5f;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    background: var(--color-ink);
+    color: var(--color-mist);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .atmosphere {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(42, 107, 80, 0.45), transparent 55%),
+      radial-gradient(900px 500px at 90% 0%, rgba(224, 184, 90, 0.12), transparent 50%),
+      linear-gradient(165deg, #0b1210 0%, #13201b 42%, #0e1915 100%);
+  }
+
+  .grain::before {
+    content: '';
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    opacity: 0.045;
+    z-index: 50;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .animate-rise {
+    animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-rise-delay {
+    animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+  }
+
+  .animate-fade {
+    animation: fade 0.45s ease both;
+  }
+
+  .score-fill {
+    animation: fillBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: left center;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fillBar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

@@ -30,11 +30,24 @@ npm run inspect:layer
 ## Monorepo layout
 
 ```
-/apps/api          NestJS HTTP + BullMQ workers (single process for v1)
+/apps/api          NestJS HTTP + BullMQ workers (serves API + built web UI)
+/apps/web          React + Vite + Tailwind dashboard
 /packages/shared   Scoring + normalization pure functions
 /prisma            Schema + migrations
 /scripts           M0 inspect-layer.ts
 ```
+
+## Web dashboard
+
+Single-tenant UI for browsing scored parcels, managing pipeline status, and triggering sync/digest.
+
+```bash
+# API on :3000 and Vite on :5173 (proxied)
+npm run start:dev          # terminal 1
+npm run dev:web            # terminal 2
+```
+
+Sign in with your `API_TOKEN`. In production the Nest process serves `apps/web/dist` at `/`.
 
 ## Tech stack
 

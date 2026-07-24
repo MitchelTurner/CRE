@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const ALLOWED_STATUSES = new Set(['new', 'sent', 'contacted', 'dead', 'deal']);
@@ -6,6 +10,68 @@ const ALLOWED_STATUSES = new Set(['new', 'sent', 'contacted', 'dead', 'deal']);
 @Injectable()
 export class LeadsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async list(status?: string) {
+    if (status && !ALLOWED_STATUSES.has(status)) {
+      throw new BadRequestException(
+        `Invalid status. Allowed: ${[...ALLOWED_STATUSES].join(', ')}`,
+      );
+    }
+
+    const items = await this.prisma.lead.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+      include: {
+        parcel: {
+          include: {
+            owner: {
+              select: {
+                nameRaw: true,
+                isAbsentee: true,
+                mailingState: true,
+              },
+            },
+            scores: {
+              orderBy: { scoredAt: 'desc' },
+              take: 1,
+              select: { total: true },
+            },
+          },
+        },
+      },
+    });
+
+    return { items };
+  }
+
+  async create(parcelId: string, whyNow?: string) {
+    const parcel = await this.prisma.parcel.findUnique({
+      where: { id: parcelId },
+      include: {
+        scores: { orderBy: { scoredAt: 'desc' }, take: 1 },
+        owner: true,
+      },
+    });
+    if (!parcel) throw new NotFoundException(`Parcel ${parcelId} not found`);
+
+    const existing = await this.prisma.lead.findFirst({
+      where: { parcelId, status: { notIn: ['dead'] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existing) return this.getById(existing.id);
+
+    const created = await this.prisma.lead.create({
+      data: {
+        parcelId,
+        status: 'new',
+        whyNow:
+          whyNow?.trim() ||
+          `Manual pipeline add — score ${parcel.scores[0]?.total ?? 'n/a'}, owner ${parcel.owner?.nameRaw ?? 'unknown'}.`,
+      },
+    });
+    return this.getById(created.id);
+  }
 
   async updateStatus(id: string, status: string) {
     if (!ALLOWED_STATUSES.has(status)) {
@@ -15,12 +81,39 @@ export class LeadsService {
     }
 
     try {
-      return await this.prisma.lead.update({
+      await this.prisma.lead.update({
         where: { id },
         data: { status },
       });
+      return this.getById(id);
     } catch {
       throw new NotFoundException(`Lead ${id} not found`);
     }
+  }
+
+  private async getById(id: string) {
+    const lead = await this.prisma.lead.findUnique({
+      where: { id },
+      include: {
+        parcel: {
+          include: {
+            owner: {
+              select: {
+                nameRaw: true,
+                isAbsentee: true,
+                mailingState: true,
+              },
+            },
+            scores: {
+              orderBy: { scoredAt: 'desc' },
+              take: 1,
+              select: { total: true },
+            },
+          },
+        },
+      },
+    });
+    if (!lead) throw new NotFoundException(`Lead ${id} not found`);
+    return lead;
   }
 }

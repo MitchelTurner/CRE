@@ -16,6 +16,9 @@ export interface MappedParcel {
   subdivision: string | null;
   deedDate: Date | null;
   fairMarketVal: number | null;
+  salePrice: number | null;
+  totalTax: number | null;
+  paidDate: Date | null;
   rawAttributes: Record<string, unknown>;
   isCommercial: boolean;
   owner: {
@@ -41,6 +44,12 @@ function asInt(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+function asFloat(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** ArcGIS date fields arrive as epoch milliseconds. */
@@ -101,6 +110,9 @@ export function mapArcGisAttributes(
     subdivision: asString(attrs[fieldMap.subdivision]),
     deedDate: parseArcGisDate(attrs[fieldMap.deedDate]),
     fairMarketVal: asInt(attrs[fieldMap.fairMarketVal]),
+    salePrice: asInt(attrs[fieldMap.salePrice]),
+    totalTax: asFloat(attrs[fieldMap.totalTax]),
+    paidDate: parseArcGisDate(attrs[fieldMap.paidDate]),
     rawAttributes: attrs,
     isCommercial,
     owner: {

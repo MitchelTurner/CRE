@@ -1,25 +1,25 @@
 # Greenville CRE Lead Engine
 
-Lead-generation system for a commercial real estate **investment sales** agent in Greenville County, SC. Ingests public county parcel records, scores every commercial parcel on sell-likelihood, and emails a weekly digest of the top leads.
+Lead-generation system for a commercial real estate **investment sales** agent in Greenville County, SC. Ingests public county parcel records, scores every commercial parcel on sell-likelihood, enriches top leads (SoS / ROD / distress / skip-trace), and emails a weekly digest.
 
-**Core thesis:** investment-sales leads are property owners who are statistically likely to sell — predictable from hold period, absentee ownership, land use, and (in v2) loan maturity / distress signals.
+**Core thesis:** investment-sales leads are property owners who are statistically likely to sell — predictable from hold period, absentee ownership, land use, loan maturity, and distress signals.
 
-## Status (v1)
+## Status (v2)
 
 | Milestone | Status |
 |---|---|
 | M0 — ArcGIS layer discovery | Done |
 | M1 — Ingestion (ArcGIS → Postgres) | Done |
 | M2 — Scoring + weekly digest | Done |
-| M3 — ROD / SoS / skip-trace / dashboard | Designed (interfaces only) |
+| M3 — ROD / SoS / skip-trace / dashboard | Done (providers optional via env) |
 
 ### M0 findings (layer 52)
 
 - **Endpoint:** `…/MapServer/52` — Tax Parcel & Ownership, ~243k parcels, `maxRecordCount=5000`, **pagination supported**.
 - **Situs address:** `STRNUM` + `LOCATE` (not `STREET`).
-- **Mailing address:** `STREET`, `CITY`, `STATE`, `ZIP5` — **present on layer 52**, so v1 absentee scoring is fully available.
-- **Commercial filter:** prefer `PROPTYPE IN ('COMMERCIAL','INDUSTRIAL','MULTI-FAMILY')` (~16k parcels). LANDUSE code set also stored in `AppConfig` for tuning.
-- **County Real Property deep link:** no stable PIN URL (ASP.NET form search). Digest links to the search homepage for now.
+- **Mailing address:** `STREET`, `CITY`, `STATE`, `ZIP5`.
+- **Tax / sale fields:** `FAIRMKTVAL`, `SLPRICE`, `TOTTAX`, `PAIDDATE`.
+- **Commercial filter:** `PROPTYPE IN ('COMMERCIAL','INDUSTRIAL','MULTI-FAMILY')`.
 
 Re-run discovery anytime:
 
@@ -39,10 +39,9 @@ npm run inspect:layer
 
 ## Web dashboard
 
-Single-tenant UI for browsing scored parcels, managing pipeline status, and triggering sync/digest.
+Single-tenant UI for browsing scored parcels (signals / SoS / contacts), pipeline feedback, and admin sync/enrich/digest.
 
 ```bash
-# API on :3000 and Vite on :5173 (proxied)
 npm run start:dev          # terminal 1
 npm run dev:web            # terminal 2
 ```
@@ -59,47 +58,37 @@ NestJS · Prisma · PostgreSQL · BullMQ · Redis · Resend (Nodemailer/SMTP fal
 cp .env.example .env
 docker compose up -d
 npm install
-npx prisma migrate dev --name init
+npx prisma migrate dev
 npm run build
 npm run start:dev -w @cre/api
-```
-
-Trigger a full sync (Bearer token = `API_TOKEN`):
-
-```bash
-curl -X POST http://localhost:3000/admin/sync \
-  -H "Authorization: Bearer $API_TOKEN"
-```
-
-Preview digest HTML without sending:
-
-```bash
-curl -X POST http://localhost:3000/admin/digest/preview \
-  -H "Authorization: Bearer $API_TOKEN"
 ```
 
 ## Jobs
 
 | Job | Schedule | Notes |
 |---|---|---|
-| `parcels.dailySync` | `0 6 * * *` America/New_York | Full commercial pull; chains scoring |
-| `parcels.fullSync` | Manual via `POST /admin/sync` | Same as daily for v1 |
-| `scoring.runAll` | After successful sync | Idempotent score rows |
-| `digest.weekly` | `0 12 * * 1` America/New_York (Mon 8am ET) | Top N leads email |
+| `parcels.dailySync` | `0 6 * * *` ET | Commercial pull → scoring → enrichment → rescore |
+| `parcels.fullSync` | `POST /admin/sync` | Same chain |
+| `scoring.runAll` | After sync / after enrichment | v2 components + active signals |
+| `enrichment.pass` | `0 8 * * *` ET + after scoring | Tax/distress/SoS/ROD/skip-trace |
+| `digest.weekly` | `0 12 * * 1` ET | Top N above FMV floor |
 
-## API (all routes except `/health` require `Authorization: Bearer $API_TOKEN`)
+## API (Bearer `API_TOKEN` except `/health`)
 
 - `POST /admin/sync`
+- `POST /admin/enrich?topN=25`
 - `GET /admin/sync-runs`
 - `GET /parcels?minScore=&landUse=&absentee=&limit=&offset=`
 - `GET /parcels/:pin`
-- `PATCH /leads/:id` `{ "status": "contacted" }`
+- `POST /leads` `{ "parcelId" }`
+- `PATCH /leads/:id` `{ "status" }`
+- `POST /leads/:id/feedback` `{ "rating": "up"|"down", "note"? }`
 - `POST /admin/digest/preview`
 - `POST /admin/digest/send`
 
-## Scoring (v1)
+## Scoring (v2)
 
-Tunable via `AppConfig` rows (`score_weights`, `landuse_priority`, `commercial_landuse_codes`):
+Tunable via `AppConfig` (`score_weights`, `landuse_priority`, `digest_fmv_floor`, …):
 
 | Component | Points |
 |---|---|
@@ -108,44 +97,48 @@ Tunable via `AppConfig` rows (`score_weights`, `landuse_priority`, `commercial_l
 | Entity owner | 0–10 |
 | Multi-parcel owner (3+) | 0–10 |
 | Land-use priority | 0–15 |
+| Tax delinquent | 0–15 |
+| Mortgage maturity (inferred) | 0–20 |
+| Foreclosure | 0–25 |
+| SoS dissolved / resolved | 10 / 3 |
+| FMV band boost | 0–5 |
 
-`whyNow` is template-based (`WhyNowService`) — no LLM in v1.
+Total capped at 100. Digest filters `fairMarketVal >= DIGEST_FMV_FLOOR` (default $250k).
+
+## Enrichment providers (optional)
+
+| Env | Purpose |
+|---|---|
+| `SOS_API_KEY` / `OPENSOSDATA_API_KEY` | SC entity resolution (official SoS is captcha-gated) |
+| `ROD_SCRAPER_ENABLED` + `ROD_EMAIL`/`ROD_PASSWORD` | Greenville GovOS deeds/mortgages |
+| `SKIPTRACE_API_URL` + `SKIPTRACE_API_KEY` | Contact lookup (weekly cap) |
+| `TAX_SALE_URL` / `FORECLOSURE_ROSTER_URL` | Distress list scrapers |
+| `DISTRESS_SCRAPER_ENABLED=false` | Disable distress fetchers |
+
+Without keys, clients stub safely and jobs still succeed (tax signals from parcel `PAIDDATE`/`TOTTAX` still apply).
 
 ## Config / env
 
-See `.env.example`. County-specific values (layer URL, field map, land-use codes) live in env + `AppConfig` — **not hardcoded in services**.
+See `.env.example`. County-specific values live in env + `AppConfig` — **not hardcoded in services**.
 
 ## Deploy (Railway)
 
-1. Provision **Postgres** and **Redis** plugins and **link both** to the web service (`DATABASE_URL` + `REDIS_URL` / `REDIS_PRIVATE_URL`).
-2. Generate a public domain on the web service (Settings → Networking → Generate Domain).
-3. Set at least: `API_TOKEN`, `DIGEST_RECIPIENTS`, `DIGEST_FROM`, and optionally `RESEND_API_KEY`.
-4. Deploy via the repo `Dockerfile` (web + worker are one process in v1). Entrypoint runs `prisma migrate deploy` then starts Nest on `0.0.0.0:$PORT`.
+1. Provision **Postgres** and **Redis** and link both (`DATABASE_URL` + `REDIS_URL` / `REDIS_PRIVATE_URL`).
+2. Generate a public domain on the web service.
+3. Set at least: `API_TOKEN`, `DIGEST_RECIPIENTS`, `DIGEST_FROM`, optionally `RESEND_API_KEY` and enrichment keys.
+4. Deploy via repo `Dockerfile`. Entrypoint runs `prisma migrate deploy` then Nest on `0.0.0.0:$PORT`.
 
-**Railway “train has not arrived”** means nothing healthy is behind the domain — usually a crashed deploy. Check Deploy Logs. Common causes:
-- Redis not linked (or app connecting to `localhost` because Redis URL was passed incorrectly)
-- Postgres not linked / migrate failed
-- No public domain assigned to the service
-
-**“table does not exist” / SyncRun missing:** migrations did not apply. Redeploy (boot runs `prisma migrate deploy`). In Railway, do **not** override the start command away from `/docker-entrypoint.sh` unless the app itself still runs migrations. Confirm Deploy Logs show `Applying migrations` / `Migrations up to date`.
+**“table does not exist” / SyncRun missing:** redeploy so boot migrations run. Keep start command `/docker-entrypoint.sh`.
 
 ## Legal / etiquette
 
 - Sources are public records; usage mirrors industry CRE data products.
-- Identify with a real User-Agent + contact email; max 2 concurrent ArcGIS requests; 250ms page delay; exponential backoff on 5xx.
-- ROD scraper (v2) is behind `ROD_SCRAPER_ENABLED=false`.
-- Skip-traced contacts (v2) are for **licensed-agent manual outreach only** — not automated dialing. Honor TCPA / DNC.
+- Identify with a real User-Agent + contact email; max 2 concurrent ArcGIS requests; 250ms page delay.
+- ROD scraper is behind `ROD_SCRAPER_ENABLED=false` by default.
+- Skip-traced contacts are for **licensed-agent manual outreach only** — not automated dialing. Honor TCPA / DNC.
 
 ## Tests
 
 ```bash
 npm test
 ```
-
-Unit tests cover scoring components, owner/address normalization, ArcGIS pagination against recorded fixtures, mapper field names, and sync idempotency against a fixture server (no live county calls).
-
-## Open questions for the agent
-
-1. Confirm / trim the commercial LANDUSE + PROPTYPE set (multifamily included by default).
-2. Minimum fair-market-value floor for digest inclusion?
-3. Preferred digest recipient list and From domain for Resend.

@@ -8,8 +8,8 @@ datasource db {
 }
 
 model Parcel {
-  id            String   @id @default(cuid())
-  pin           String   @unique
+  id            String    @id @default(cuid())
+  pin           String    @unique
   situsAddress  String?
   landUseCode   String?
   landUseDesc   String?
@@ -17,34 +17,44 @@ model Parcel {
   subdivision   String?
   deedDate      DateTime?
   fairMarketVal Int?
+  salePrice     Int?
+  totalTax      Float?
+  paidDate      DateTime?
   rawAttributes Json
-  owner         Owner?   @relation(fields: [ownerId], references: [id])
+  owner         Owner?    @relation(fields: [ownerId], references: [id])
   ownerId       String?
   scores        Score[]
   signals       Signal[]
   leads         Lead[]
-  firstSeenAt   DateTime @default(now())
-  lastSyncedAt  DateTime @updatedAt
-  isCommercial  Boolean  @default(false)
-  isActive      Boolean  @default(true)
+  firstSeenAt   DateTime  @default(now())
+  lastSyncedAt  DateTime  @updatedAt
+  isCommercial  Boolean   @default(false)
+  isActive      Boolean   @default(true)
 
   @@index([landUseCode])
   @@index([isCommercial, isActive])
   @@index([ownerId])
+  @@index([fairMarketVal])
 }
 
 model Owner {
-  id             String    @id @default(cuid())
-  nameRaw        String
-  nameNormalized String
-  mailingAddress String    @default("") // empty string when unknown; part of dedupe key
-  mailingCity    String?
-  mailingState   String?
-  mailingZip     String?
-  isEntity       Boolean   @default(false)
-  isAbsentee     Boolean   @default(false)
-  parcels        Parcel[]
-  contacts       Contact[]
+  id                   String    @id @default(cuid())
+  nameRaw              String
+  nameNormalized       String
+  mailingAddress       String    @default("")
+  mailingCity          String?
+  mailingState         String?
+  mailingZip           String?
+  isEntity             Boolean   @default(false)
+  isAbsentee           Boolean   @default(false)
+  sosEntityId          String?
+  sosStatus            String?
+  sosRegisteredAgent   String?
+  sosAgentAddress      String?
+  sosFetchedAt         DateTime?
+  sosRaw               Json?
+  parcels              Parcel[]
+  contacts             Contact[]
 
   @@index([nameNormalized])
   @@unique([nameNormalized, mailingAddress])
@@ -60,6 +70,8 @@ model Contact {
   email     String?
   source    String
   createdAt DateTime @default(now())
+
+  @@index([ownerId])
 }
 
 model Score {
@@ -83,20 +95,38 @@ model Signal {
   payload    Json
   detectedAt DateTime  @default(now())
   expiresAt  DateTime?
+
+  @@index([parcelId, type])
+  @@index([type, detectedAt])
 }
 
 model Lead {
-  id        String   @id @default(cuid())
-  parcel    Parcel   @relation(fields: [parcelId], references: [id])
+  id        String         @id @default(cuid())
+  parcel    Parcel         @relation(fields: [parcelId], references: [id])
   parcelId  String
-  status    String   @default("new")
+  status    String         @default("new")
+  leadType  String         @default("seller")
   digestId  String?
   whyNow    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  feedback  LeadFeedback[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   @@index([status])
   @@index([parcelId])
+  @@index([leadType])
+}
+
+model LeadFeedback {
+  id        String   @id @default(cuid())
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  leadId    String
+  rating    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([rating])
 }
 
 model Digest {

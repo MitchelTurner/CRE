@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 
 const ALLOWED_STATUSES = new Set(['new', 'sent', 'contacted', 'dead', 'deal']);
+const ALLOWED_RATINGS = new Set(['up', 'down']);
 
 @Injectable()
 export class LeadsService {
@@ -39,6 +40,11 @@ export class LeadsService {
             },
           },
         },
+        feedback: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { rating: true, note: true, createdAt: true },
+        },
       },
     });
 
@@ -56,7 +62,7 @@ export class LeadsService {
     if (!parcel) throw new NotFoundException(`Parcel ${parcelId} not found`);
 
     const existing = await this.prisma.lead.findFirst({
-      where: { parcelId, status: { notIn: ['dead'] } },
+      where: { parcelId, status: { notIn: ['dead'] }, leadType: 'seller' },
       orderBy: { createdAt: 'desc' },
     });
     if (existing) return this.getById(existing.id);
@@ -65,6 +71,7 @@ export class LeadsService {
       data: {
         parcelId,
         status: 'new',
+        leadType: 'seller',
         whyNow:
           whyNow?.trim() ||
           `Manual pipeline add — score ${parcel.scores[0]?.total ?? 'n/a'}, owner ${parcel.owner?.nameRaw ?? 'unknown'}.`,
@@ -91,6 +98,25 @@ export class LeadsService {
     }
   }
 
+  async addFeedback(id: string, rating: string, note?: string) {
+    if (!ALLOWED_RATINGS.has(rating)) {
+      throw new BadRequestException(`Invalid rating. Allowed: up, down`);
+    }
+
+    const lead = await this.prisma.lead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException(`Lead ${id} not found`);
+
+    await this.prisma.leadFeedback.create({
+      data: {
+        leadId: id,
+        rating,
+        note: note?.trim() || null,
+      },
+    });
+
+    return this.getById(id);
+  }
+
   private async getById(id: string) {
     const lead = await this.prisma.lead.findUnique({
       where: { id },
@@ -110,6 +136,11 @@ export class LeadsService {
               select: { total: true },
             },
           },
+        },
+        feedback: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { rating: true, note: true, createdAt: true },
         },
       },
     });

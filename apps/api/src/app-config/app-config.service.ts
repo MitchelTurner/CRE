@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   CONFIG_KEYS,
+  DEFAULT_DIGEST_FMV_FLOOR,
   type FieldMap,
   type ScoreWeights,
 } from '@cre/shared';
@@ -33,6 +34,8 @@ export class AppConfigService implements OnModuleInit {
       [CONFIG_KEYS.SCORE_WEIGHTS]: this.config.get('defaults.scoreWeights'),
       [CONFIG_KEYS.LANDUSE_PRIORITY]: this.config.get('defaults.landUsePriority'),
       [CONFIG_KEYS.FIELD_MAP]: this.config.get('defaults.fieldMap'),
+      [CONFIG_KEYS.DIGEST_FMV_FLOOR]:
+        this.config.get('defaults.digestFmvFloor') ?? DEFAULT_DIGEST_FMV_FLOOR,
     };
 
     for (const [key, value] of Object.entries(defaults)) {
@@ -84,5 +87,13 @@ export class AppConfigService implements OnModuleInit {
       CONFIG_KEYS.FIELD_MAP,
       this.config.getOrThrow<FieldMap>('defaults.fieldMap'),
     );
+  }
+
+  async getDigestFmvFloor(): Promise<number> {
+    const value = await this.getJson<number>(
+      CONFIG_KEYS.DIGEST_FMV_FLOOR,
+      this.config.get<number>('defaults.digestFmvFloor') ?? DEFAULT_DIGEST_FMV_FLOOR,
+    );
+    return typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_DIGEST_FMV_FLOOR;
   }
 }

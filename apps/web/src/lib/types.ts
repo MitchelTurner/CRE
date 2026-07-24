@@ -1,4 +1,5 @@
 export type LeadStatus = 'new' | 'sent' | 'contacted' | 'dead' | 'deal';
+export type FeedbackRating = 'up' | 'down';
 
 export interface ParcelListItem {
   id: string;
@@ -20,6 +21,12 @@ export interface ScoreComponents {
   entity: number;
   multiParcel: number;
   landUsePriority: number;
+  taxDelinquent?: number;
+  mortgageMaturity?: number;
+  foreclosure?: number;
+  recentSeller?: number;
+  sosBoost?: number;
+  fmvBoost?: number;
   missingDeedDate?: boolean;
 }
 
@@ -33,6 +40,9 @@ export interface ParcelDetail {
   subdivision: string | null;
   deedDate: string | null;
   fairMarketVal: number | null;
+  salePrice: number | null;
+  totalTax: number | null;
+  paidDate: string | null;
   isCommercial: boolean;
   isActive: boolean;
   owner: {
@@ -43,6 +53,19 @@ export interface ParcelDetail {
     mailingState: string | null;
     isEntity: boolean;
     isAbsentee: boolean;
+    sosEntityId?: string | null;
+    sosStatus?: string | null;
+    sosRegisteredAgent?: string | null;
+    sosAgentAddress?: string | null;
+    sosFetchedAt?: string | null;
+    contacts?: Array<{
+      id: string;
+      name: string | null;
+      role: string | null;
+      phone: string | null;
+      email: string | null;
+      source: string;
+    }>;
     parcels: Array<{
       pin: string;
       situsAddress: string | null;
@@ -62,10 +85,12 @@ export interface ParcelDetail {
     type: string;
     payload: unknown;
     detectedAt: string;
+    expiresAt?: string | null;
   }>;
   leads: Array<{
     id: string;
     status: LeadStatus;
+    leadType?: string;
     whyNow: string;
     digestId: string | null;
     createdAt: string;
@@ -76,9 +101,11 @@ export interface ParcelDetail {
 export interface LeadRow {
   id: string;
   status: LeadStatus;
+  leadType?: string;
   whyNow: string;
   createdAt: string;
   updatedAt: string;
+  feedback?: Array<{ rating: FeedbackRating; note: string | null; createdAt: string }>;
   parcel: {
     id: string;
     pin: string;

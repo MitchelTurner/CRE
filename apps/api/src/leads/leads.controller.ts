@@ -21,4 +21,13 @@ export class LeadsController {
   updateStatus(@Param('id') id: string, @Body('status') status: string) {
     return this.leads.updateStatus(id, status);
   }
+
+  @Post(':id/feedback')
+  feedback(
+    @Param('id') id: string,
+    @Body('rating') rating: string,
+    @Body('note') note?: string,
+  ) {
+    return this.leads.addFeedback(id, rating, note);
+  }
 }

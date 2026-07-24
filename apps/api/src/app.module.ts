@@ -12,6 +12,7 @@ import { ParcelsModule } from './parcels/parcels.module';
 import { LeadsModule } from './leads/leads.module';
 import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './app-config/app-config.module';
+import { EnrichmentModule } from './enrichment/enrichment.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
 
@@ -33,6 +34,7 @@ import { buildRedisConnection } from './config/redis.connection';
     JobsModule,
     IngestionModule,
     ScoringModule,
+    EnrichmentModule,
     DigestModule,
     ParcelsModule,
     LeadsModule,

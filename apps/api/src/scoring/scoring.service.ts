@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { scoreParcel } from '@cre/shared';
+import { scoreParcel, type SignalType } from '@cre/shared';
 import { AppConfigService } from '../app-config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhyNowService } from './why-now.service';
@@ -10,6 +10,15 @@ export interface ScoringRunResult {
   scored: number;
   syncRunId: string;
 }
+
+const KNOWN_SIGNAL_TYPES = new Set<SignalType>([
+  'tax_delinquent',
+  'mortgage_maturity',
+  'foreclosure',
+  'recent_seller',
+  'sos_dissolved',
+  'sos_resolved',
+]);
 
 @Injectable()
 export class ScoringService {
@@ -32,10 +41,9 @@ export class ScoringService {
         this.appConfig.getScoreWeights(),
         this.appConfig.getLandUsePriority(),
       ]);
-      const scoreVersion = this.config.get<string>('scoreVersion') ?? 'v1';
+      const scoreVersion = this.config.get<string>('scoreVersion') ?? 'v2';
       const homeState = this.config.get<string>('countyHomeState') ?? 'SC';
 
-      // Precompute parcel counts per owner for multi-parcel component
       const ownerCounts = await this.prisma.parcel.groupBy({
         by: ['ownerId'],
         where: { isActive: true, isCommercial: true, ownerId: { not: null } },
@@ -46,9 +54,18 @@ export class ScoringService {
         if (row.ownerId) countByOwner.set(row.ownerId, row._count._all);
       }
 
+      const now = new Date();
       const parcels = await this.prisma.parcel.findMany({
         where: { isActive: true, isCommercial: true },
-        include: { owner: true },
+        include: {
+          owner: true,
+          signals: {
+            where: {
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            },
+            select: { type: true },
+          },
+        },
       });
 
       let scored = 0;
@@ -57,6 +74,13 @@ export class ScoringService {
         const ownerCount = owner ? (countByOwner.get(owner.id) ?? 1) : 1;
         const mailingStreet =
           owner?.mailingAddress?.split(',')[0]?.trim() ?? owner?.mailingAddress ?? null;
+        const signalTypes = [
+          ...new Set(
+            parcel.signals
+              .map((s) => s.type)
+              .filter((t): t is SignalType => KNOWN_SIGNAL_TYPES.has(t as SignalType)),
+          ),
+        ];
 
         const { total, components } = scoreParcel({
           deedDate: parcel.deedDate,
@@ -67,6 +91,10 @@ export class ScoringService {
           activeCommercialParcelCount: ownerCount,
           landUseCode: parcel.landUseCode,
           landUsePriorityMap: landUsePriority,
+          paidDate: parcel.paidDate,
+          totalTax: parcel.totalTax,
+          fairMarketVal: parcel.fairMarketVal,
+          signalTypes,
           homeState,
           weights,
         });

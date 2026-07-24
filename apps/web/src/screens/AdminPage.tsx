@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  enqueueEnrich,
   enqueueSync,
   listSyncRuns,
   previewDigest,
@@ -61,7 +62,7 @@ export function AdminPage() {
       <div className="mb-8">
         <h2 className="font-display text-3xl font-bold tracking-tight text-white">Admin</h2>
         <p className="text-fog mt-1 max-w-xl text-sm">
-          Trigger ingestion, inspect sync history, and preview or send the weekly digest.
+          Trigger ingestion, enrichment (SoS / ROD / distress / skip-trace), and digest preview/send.
         </p>
       </div>
 
@@ -73,6 +74,14 @@ export function AdminPage() {
           className="bg-moss text-ink hover:bg-moss-dim px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           {busy === 'Sync' ? 'Enqueueing…' : 'Run full sync'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => void run('Enrich', () => enqueueEnrich(25))}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'Enrich' ? 'Enqueueing…' : 'Run enrichment'}
         </button>
         <button
           type="button"

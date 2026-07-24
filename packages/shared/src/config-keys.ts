@@ -4,6 +4,7 @@ export const CONFIG_KEYS = {
   SCORE_WEIGHTS: 'score_weights',
   LANDUSE_PRIORITY: 'landuse_priority',
   FIELD_MAP: 'field_map',
+  DIGEST_FMV_FLOOR: 'digest_fmv_floor',
 } as const;
 
 export type ConfigKey = (typeof CONFIG_KEYS)[keyof typeof CONFIG_KEYS];

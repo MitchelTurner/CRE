@@ -34,7 +34,6 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((err: unknown) => {
   const message = err instanceof Error ? err.stack ?? err.message : String(err);
-  // eslint-disable-next-line no-console
-  console.error('Fatal bootstrap error:', message);
+  Logger.error(`Fatal bootstrap error: ${message}`, 'Bootstrap');
   process.exit(1);
 });

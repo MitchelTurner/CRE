@@ -7,7 +7,7 @@ import { ScoreBar } from '../components/ScoreBar';
 
 export function ParcelsPage() {
   const [items, setItems] = useState<ParcelListItem[]>([]);
-  const [minScore, setMinScore] = useState(40);
+  const [minScore, setMinScore] = useState(0);
   const [landUse, setLandUse] = useState('');
   const [absenteeOnly, setAbsenteeOnly] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -128,7 +128,9 @@ export function ParcelsPage() {
             {!loading && items.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-fog py-12 text-center">
-                  No parcels match these filters. Run a sync from Admin if the database is empty.
+                  No parcels yet. Open <Link to="/admin" className="text-moss">Admin</Link> and
+                  click <strong className="text-mist">Run full sync</strong> — scoring runs
+                  automatically after sync completes (may take several minutes).
                 </td>
               </tr>
             ) : null}

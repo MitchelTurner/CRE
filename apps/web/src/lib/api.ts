@@ -104,12 +104,20 @@ export function sendDigest() {
 
 export async function verifyToken(): Promise<boolean> {
   try {
-    await listParcels({ limit: 1 });
-    return true;
-  } catch (err) {
-    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) return false;
-    // Network/DB issues still mean the token format was accepted enough to attempt.
-    if (err instanceof ApiError && err.status >= 500) return true;
-    throw err;
+    // Cheap authenticated probe — avoids heavy parcel queries during login.
+    const res = await fetch('/admin/sync-runs?limit=1', {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${getToken() ?? ''}`,
+      },
+    });
+    if (res.status === 401 || res.status === 403) return false;
+    if (!res.ok && res.status >= 500) {
+      // Auth passed far enough that the guard accepted the token.
+      return true;
+    }
+    return res.ok;
+  } catch {
+    throw new Error('Could not reach API');
   }
 }

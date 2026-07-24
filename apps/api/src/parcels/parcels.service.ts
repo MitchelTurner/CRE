@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ParcelListQuery {
@@ -18,6 +19,22 @@ export class ParcelsService {
     const limit = Math.min(query.limit ?? 50, 200);
     const offset = query.offset ?? 0;
 
+    const filters: Prisma.Sql[] = [
+      Prisma.sql`p."isActive" = true`,
+      Prisma.sql`p."isCommercial" = true`,
+    ];
+
+    // Only apply when > 0 so unscored parcels still appear before/during first scoring run.
+    if (typeof query.minScore === 'number' && !Number.isNaN(query.minScore) && query.minScore > 0) {
+      filters.push(Prisma.sql`s.total >= ${query.minScore}`);
+    }
+    if (query.landUse) {
+      filters.push(Prisma.sql`p."landUseCode" = ${query.landUse}`);
+    }
+    if (typeof query.absentee === 'boolean') {
+      filters.push(Prisma.sql`o."isAbsentee" = ${query.absentee}`);
+    }
+
     const rows = await this.prisma.$queryRaw<
       Array<{
         id: string;
@@ -32,7 +49,7 @@ export class ParcelsService {
         scoredAt: Date | null;
         components: unknown;
       }>
-    >`
+    >(Prisma.sql`
       SELECT
         p.id,
         p.pin,
@@ -54,14 +71,10 @@ export class ParcelsService {
         ORDER BY "scoredAt" DESC
         LIMIT 1
       ) s ON true
-      WHERE p."isActive" = true
-        AND p."isCommercial" = true
-        AND (${query.minScore ?? null}::int IS NULL OR s.total >= ${query.minScore ?? null})
-        AND (${query.landUse ?? null}::text IS NULL OR p."landUseCode" = ${query.landUse ?? null})
-        AND (${query.absentee ?? null}::boolean IS NULL OR o."isAbsentee" = ${query.absentee ?? null})
+      WHERE ${Prisma.join(filters, ' AND ')}
       ORDER BY s.total DESC NULLS LAST
       LIMIT ${limit} OFFSET ${offset}
-    `;
+    `);
 
     return { items: rows, limit, offset };
   }

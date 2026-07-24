@@ -18,6 +18,7 @@ export interface ArcGisLayerMetadata {
 
 export interface ArcGisFeature {
   attributes: Record<string, unknown>;
+  geometry?: unknown;
 }
 
 export interface ArcGisQueryResponse {

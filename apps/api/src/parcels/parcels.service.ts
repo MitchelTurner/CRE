@@ -167,4 +167,48 @@ export class ParcelsService {
 
     return parcel;
   }
+
+  async mapPoints(query: { minScore?: number; limit?: number }) {
+    const limit = Math.min(query.limit ?? 400, 1000);
+    const minScore = query.minScore ?? 0;
+
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        pin: string;
+        situsAddress: string | null;
+        latitude: number;
+        longitude: number;
+        score: number | null;
+        propType: string | null;
+      }>
+    >`
+      SELECT
+        p.id,
+        p.pin,
+        p."situsAddress",
+        p.latitude,
+        p.longitude,
+        p."propType",
+        s.total AS score
+      FROM "Parcel" p
+      LEFT JOIN LATERAL (
+        SELECT total FROM "Score" WHERE "parcelId" = p.id ORDER BY "scoredAt" DESC LIMIT 1
+      ) s ON true
+      WHERE p."isActive" = true
+        AND p."isCommercial" = true
+        AND p.latitude IS NOT NULL
+        AND p.longitude IS NOT NULL
+        AND (${minScore} = 0 OR s.total >= ${minScore})
+      ORDER BY s.total DESC NULLS LAST
+      LIMIT ${limit}
+    `;
+
+    return { items: rows, bounds: {
+      minLat: 34.65,
+      maxLat: 35.15,
+      minLon: -82.65,
+      maxLon: -82.15,
+    } };
+  }
 }

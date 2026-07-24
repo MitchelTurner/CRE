@@ -5,8 +5,12 @@ import {
   DEFAULT_FIELD_MAP,
   DEFAULT_LANDUSE_PRIORITY,
   DEFAULT_SCORE_WEIGHTS,
+  getCountyPreset,
 } from '@cre/shared';
 import { resolveRedisUrl } from './redis.connection';
+
+const countySlug = (process.env.COUNTY_SLUG ?? 'greenville').trim().toLowerCase();
+const countyPreset = getCountyPreset(countySlug);
 
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -28,28 +32,37 @@ export default () => ({
   ),
   arcgis: {
     parcelLayerUrl:
-      process.env.ARCGIS_PARCEL_LAYER_URL ??
-      'https://www.gcgis.org/arcgis/rest/services/GreenvilleJS/Map_Layers_JS/MapServer/52',
+      process.env.ARCGIS_PARCEL_LAYER_URL ?? countyPreset.parcelLayerUrl,
     maxConcurrency: parseInt(process.env.ARCGIS_MAX_CONCURRENCY ?? '2', 10),
     pageDelayMs: parseInt(process.env.ARCGIS_PAGE_DELAY_MS ?? '250', 10),
     userAgent:
       process.env.ARCGIS_USER_AGENT ??
       'GreenvilleCRE-LeadEngine/1.0 (+contact@example.com)',
   },
-  scoreVersion: process.env.SCORE_VERSION ?? 'v2',
-  countyName: process.env.COUNTY_NAME ?? 'Greenville',
-  countyHomeState: process.env.COUNTY_HOME_STATE ?? 'SC',
+  scoreVersion: process.env.SCORE_VERSION ?? 'v3',
+  countySlug,
+  countyName: process.env.COUNTY_NAME ?? countyPreset.name,
+  countyHomeState: process.env.COUNTY_HOME_STATE ?? countyPreset.homeState,
   countyParcelLinkBase:
-    process.env.COUNTY_PARCEL_LINK_BASE ??
-    'https://www.greenvillecounty.org/appsas400/RealProperty/',
+    process.env.COUNTY_PARCEL_LINK_BASE ?? countyPreset.parcelLinkBase,
   rodScraperEnabled: process.env.ROD_SCRAPER_ENABLED === 'true',
   skiptraceWeeklyCap: parseInt(process.env.SKIPTRACE_WEEKLY_CAP ?? '25', 10),
+  outreachAgentName: process.env.OUTREACH_AGENT_NAME ?? '',
+  crmWebhookUrl: process.env.CRM_WEBHOOK_URL ?? '',
+  crmWebhookToken: process.env.CRM_WEBHOOK_TOKEN ?? '',
+  crmProvider: process.env.CRM_PROVIDER ?? 'webhook',
   defaults: {
-    fieldMap: DEFAULT_FIELD_MAP,
-    commercialLandUseCodes: [...DEFAULT_COMMERCIAL_LANDUSE_CODES],
-    commercialPropTypes: [...DEFAULT_COMMERCIAL_PROP_TYPES],
+    fieldMap: process.env.ARCGIS_PARCEL_LAYER_URL
+      ? DEFAULT_FIELD_MAP
+      : countyPreset.fieldMap,
+    commercialLandUseCodes: countyPreset.commercialLandUseCodes.length
+      ? countyPreset.commercialLandUseCodes
+      : [...DEFAULT_COMMERCIAL_LANDUSE_CODES],
+    commercialPropTypes: countyPreset.commercialPropTypes.length
+      ? countyPreset.commercialPropTypes
+      : [...DEFAULT_COMMERCIAL_PROP_TYPES],
     scoreWeights: DEFAULT_SCORE_WEIGHTS,
-    landUsePriority: DEFAULT_LANDUSE_PRIORITY,
+    landUsePriority: countyPreset.landUsePriority,
     digestFmvFloor: DEFAULT_DIGEST_FMV_FLOOR,
   },
 });

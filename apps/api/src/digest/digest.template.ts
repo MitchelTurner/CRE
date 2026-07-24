@@ -7,27 +7,22 @@ export interface DigestLeadRow {
   whyNow: string;
   ownerName: string;
   parcelLink: string;
+  hot?: boolean;
 }
 
 export function renderDigestHtml(input: {
   weekOf: string;
   countyName: string;
-  leads: DigestLeadRow[];
+  hotLeads: DigestLeadRow[];
+  evergreenLeads: DigestLeadRow[];
 }): string {
-  const rows = input.leads
-    .map(
-      (l) => `
-      <tr>
-        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;width:28px;font-weight:700;color:#0f766e;">${l.rank}</td>
-        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
-          <div style="font-weight:600;color:#111827;">${escapeHtml(l.situsAddress)}</div>
-          <div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(l.landUse)} · Score ${l.score}</div>
-          <div style="font-size:14px;color:#374151;margin-top:6px;">${escapeHtml(l.whyNow)}</div>
-          <div style="font-size:13px;color:#6b7280;margin-top:6px;">Owner: ${escapeHtml(l.ownerName)} · PIN <a href="${escapeHtml(l.parcelLink)}" style="color:#0f766e;">${escapeHtml(l.pin)}</a></div>
-        </td>
-      </tr>`,
-    )
-    .join('');
+  const hotSection = sectionHtml('Hot this week', 'New catalysts — tax, foreclosure, maturity, zoning, permits, 1031, probate', input.hotLeads);
+  const evergreenSection = sectionHtml(
+    'Evergreen long-holds',
+    'Strong sell-likelihood without a brand-new catalyst',
+    input.evergreenLeads,
+  );
+  const total = input.hotLeads.length + input.evergreenLeads.length;
 
   return `<!DOCTYPE html>
 <html>
@@ -40,16 +35,11 @@ export function renderDigestHtml(input: {
           <td style="background:#0f766e;color:#ecfdf5;padding:20px 24px;">
             <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Weekly Digest</div>
             <div style="font-size:22px;font-weight:700;margin-top:4px;">${escapeHtml(input.countyName)} CRE Leads</div>
-            <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${input.leads.length} new</div>
+            <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${total} new · ${input.hotLeads.length} hot</div>
           </td>
         </tr>
-        <tr>
-          <td style="padding:8px 16px 24px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-              ${rows || '<tr><td style="padding:24px;color:#6b7280;">No new leads this week.</td></tr>'}
-            </table>
-          </td>
-        </tr>
+        ${hotSection}
+        ${evergreenSection}
         <tr>
           <td style="padding:16px 24px;background:#f9fafb;font-size:12px;color:#9ca3af;">
             Public-records lead scores for investment sales. Contact data (if any) is for licensed-agent outreach only — not automated dialing (TCPA/DNC).
@@ -60,6 +50,43 @@ export function renderDigestHtml(input: {
   </table>
 </body>
 </html>`;
+}
+
+function sectionHtml(title: string, subtitle: string, leads: DigestLeadRow[]): string {
+  if (!leads.length) {
+    return `
+      <tr>
+        <td style="padding:20px 24px 8px;">
+          <div style="font-size:16px;font-weight:700;color:#111827;">${escapeHtml(title)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(subtitle)}</div>
+          <div style="padding:16px 0;color:#9ca3af;font-size:14px;">None this week.</div>
+        </td>
+      </tr>`;
+  }
+
+  const rows = leads
+    .map(
+      (l) => `
+      <tr>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;width:28px;font-weight:700;color:#0f766e;">${l.rank}</td>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
+          <div style="font-weight:600;color:#111827;">${escapeHtml(l.situsAddress)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(l.landUse)} · Score ${l.score}${l.hot ? ' · HOT' : ''}</div>
+          <div style="font-size:14px;color:#374151;margin-top:6px;">${escapeHtml(l.whyNow)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:6px;">Owner: ${escapeHtml(l.ownerName)} · PIN <a href="${escapeHtml(l.parcelLink)}" style="color:#0f766e;">${escapeHtml(l.pin)}</a></div>
+        </td>
+      </tr>`,
+    )
+    .join('');
+
+  return `
+    <tr>
+      <td style="padding:20px 24px 0;">
+        <div style="font-size:16px;font-weight:700;color:#111827;">${escapeHtml(title)}</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:2px;margin-bottom:8px;">${escapeHtml(subtitle)}</div>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${rows}</table>
+      </td>
+    </tr>`;
 }
 
 function escapeHtml(value: string): string {

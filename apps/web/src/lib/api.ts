@@ -2,8 +2,11 @@ import { clearToken, getToken } from './auth';
 import type {
   DigestPreview,
   FeedbackRating,
+  HitlReview,
   LeadRow,
   LeadStatus,
+  MapPoint,
+  OutreachDrafts,
   ParcelDetail,
   ParcelListItem,
   SyncRun,
@@ -78,8 +81,23 @@ export function listParcels(query: ParcelListQuery = {}) {
   );
 }
 
+export function listMapPoints(query: { minScore?: number; limit?: number } = {}) {
+  const params = new URLSearchParams();
+  if (query.minScore !== undefined) params.set('minScore', String(query.minScore));
+  if (query.limit !== undefined) params.set('limit', String(query.limit));
+  const qs = params.toString();
+  return request<{
+    items: MapPoint[];
+    bounds: { minLat: number; maxLat: number; minLon: number; maxLon: number };
+  }>(`/parcels/map${qs ? `?${qs}` : ''}`);
+}
+
 export function getParcel(pin: string) {
   return request<ParcelDetail>(`/parcels/${encodeURIComponent(pin)}`);
+}
+
+export function getParcelOutreach(pin: string) {
+  return request<OutreachDrafts>(`/parcels/${encodeURIComponent(pin)}/outreach`);
 }
 
 export function listLeads(status?: LeadStatus) {
@@ -101,6 +119,13 @@ export function updateLeadStatus(id: string, status: LeadStatus) {
   });
 }
 
+export function submitLeadFeedback(id: string, rating: FeedbackRating, note?: string) {
+  return request<LeadRow>(`/leads/${encodeURIComponent(id)}/feedback`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, note }),
+  });
+}
+
 export function enqueueSync() {
   return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/sync', {
     method: 'POST',
@@ -114,10 +139,34 @@ export function enqueueEnrich(topN = 25) {
   );
 }
 
-export function submitLeadFeedback(id: string, rating: FeedbackRating, note?: string) {
-  return request<LeadRow>(`/leads/${encodeURIComponent(id)}/feedback`, {
+export function tuneWeights() {
+  return request<{ samples: number; adjusted: Record<string, number> }>(
+    '/admin/tune-weights',
+    { method: 'POST' },
+  );
+}
+
+export function syncCrm() {
+  return request<{ attempted: number; synced: number; skipped: number }>(
+    '/admin/crm/sync',
+    { method: 'POST' },
+  );
+}
+
+export function listHitl(status = 'pending') {
+  return request<HitlReview[]>(`/admin/hitl?status=${encodeURIComponent(status)}`);
+}
+
+export function refreshHitl(limit = 25) {
+  return request<{ created: number }>(`/admin/hitl/refresh?limit=${limit}`, {
     method: 'POST',
-    body: JSON.stringify({ rating, note }),
+  });
+}
+
+export function updateHitl(id: string, status: string, note?: string) {
+  return request(`/admin/hitl/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, note }),
   });
 }
 
@@ -147,7 +196,6 @@ export async function verifyToken(): Promise<boolean> {
       cache: 'no-store',
     });
     if (res.status === 401 || res.status === 403) return false;
-    // 5xx after the guard means the token was accepted.
     return res.ok || res.status >= 500;
   } catch {
     throw new Error('Could not reach API');

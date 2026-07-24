@@ -19,6 +19,8 @@ export interface MappedParcel {
   salePrice: number | null;
   totalTax: number | null;
   paidDate: Date | null;
+  latitude: number | null;
+  longitude: number | null;
   rawAttributes: Record<string, unknown>;
   isCommercial: boolean;
   owner: {
@@ -31,6 +33,7 @@ export interface MappedParcel {
     mailingStreet: string | null;
     isEntity: boolean;
     isAbsentee: boolean;
+    clusterKey: string;
   };
 }
 
@@ -102,6 +105,14 @@ export function mapArcGisAttributes(
     (propType !== null && options.commercialPropTypes.has(propType)) ||
     (landUseCode !== null && options.commercialLandUseCodes.has(landUseCode));
 
+  const mailingAddress = buildMailingAddress(
+    mailingStreet,
+    mailingCity,
+    mailingState,
+    mailingZip,
+  );
+  const nameNormalized = normalizeOwnerName(nameRaw || 'UNKNOWN');
+
   return {
     pin,
     situsAddress,
@@ -113,12 +124,14 @@ export function mapArcGisAttributes(
     salePrice: asInt(attrs[fieldMap.salePrice]),
     totalTax: asFloat(attrs[fieldMap.totalTax]),
     paidDate: parseArcGisDate(attrs[fieldMap.paidDate]),
+    latitude: asFloat(attrs.__latitude),
+    longitude: asFloat(attrs.__longitude),
     rawAttributes: attrs,
     isCommercial,
     owner: {
       nameRaw: nameRaw || 'UNKNOWN',
-      nameNormalized: normalizeOwnerName(nameRaw || 'UNKNOWN'),
-      mailingAddress: buildMailingAddress(mailingStreet, mailingCity, mailingState, mailingZip),
+      nameNormalized,
+      mailingAddress,
       mailingCity,
       mailingState,
       mailingZip,
@@ -130,6 +143,18 @@ export function mapArcGisAttributes(
         mailingState,
         homeState: options.homeState,
       }),
+      clusterKey: buildClusterKey(mailingAddress, mailingState, mailingZip),
     },
   };
+}
+
+export function buildClusterKey(
+  mailingAddress: string | null | undefined,
+  mailingState: string | null | undefined,
+  mailingZip: string | null | undefined,
+): string {
+  const base = (mailingAddress || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  const st = (mailingState || '').toUpperCase().trim();
+  const zip = (mailingZip || '').trim().slice(0, 5);
+  return [base, st, zip].filter(Boolean).join('|') || 'UNKNOWN';
 }

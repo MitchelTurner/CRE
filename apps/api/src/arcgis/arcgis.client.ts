@@ -5,6 +5,7 @@ import type {
   ArcGisLayerMetadata,
   ArcGisQueryResponse,
 } from './arcgis.types';
+import { centroidFromGeometry } from './geometry';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -66,6 +67,7 @@ export class ArcGisClient {
     where?: string;
     outFields?: string;
     pageSize?: number;
+    includeGeometry?: boolean;
     onPage?: (info: { offset: number; count: number }) => void;
   }): AsyncGenerator<Record<string, unknown>, void, unknown> {
     const meta = await this.getLayerMetadata();
@@ -75,6 +77,7 @@ export class ArcGisClient {
     );
     const where = options?.where ?? '1=1';
     const outFields = options?.outFields ?? '*';
+    const includeGeometry = options?.includeGeometry !== false;
     const supportsPagination = meta.advancedQueryCapabilities?.supportsPagination === true;
 
     if (supportsPagination) {
@@ -83,7 +86,8 @@ export class ArcGisClient {
         const page = await this.query({
           where,
           outFields,
-          returnGeometry: false,
+          returnGeometry: includeGeometry,
+          outSR: 4326,
           resultOffset: offset,
           resultRecordCount: pageSize,
           orderByFields: 'OBJECTID',
@@ -92,7 +96,7 @@ export class ArcGisClient {
         options?.onPage?.({ offset, count: features.length });
         if (features.length === 0) break;
         for (const f of features) {
-          yield f.attributes;
+          yield this.withCentroid(f.attributes, includeGeometry ? f.geometry : undefined);
         }
         // Full page ⇒ possibly more; short page ⇒ done.
         if (features.length < pageSize) break;
@@ -113,16 +117,30 @@ export class ArcGisClient {
       const page = await this.query({
         where: `OBJECTID >= ${minId} AND OBJECTID <= ${maxId} AND (${where})`,
         outFields,
-        returnGeometry: false,
+        returnGeometry: includeGeometry,
+        outSR: 4326,
         orderByFields: 'OBJECTID',
       });
       const features = page.features ?? [];
       options?.onPage?.({ offset: i, count: features.length });
       for (const f of features) {
-        yield f.attributes;
+        yield this.withCentroid(f.attributes, includeGeometry ? f.geometry : undefined);
       }
       await sleep(this.pageDelayMs);
     }
+  }
+
+  private withCentroid(
+    attributes: Record<string, unknown>,
+    geometry: unknown,
+  ): Record<string, unknown> {
+    const c = centroidFromGeometry(geometry);
+    if (!c) return attributes;
+    return {
+      ...attributes,
+      __latitude: c.latitude,
+      __longitude: c.longitude,
+    };
   }
 
   private async acquire(): Promise<void> {

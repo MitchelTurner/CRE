@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { createLead, getParcel, updateLeadStatus } from '../lib/api';
-import type { LeadStatus, ParcelDetail } from '../lib/types';
+import { createLead, getParcel, getParcelOutreach, updateLeadStatus } from '../lib/api';
+import type { LeadStatus, OutreachDrafts, ParcelDetail } from '../lib/types';
 import { formatDate, formatMoney, yearsHeld } from '../lib/format';
 import { ScoreBar } from '../components/ScoreBar';
 import { StatusSelect } from '../components/StatusSelect';
@@ -14,11 +14,18 @@ const SIGNAL_LABELS: Record<string, string> = {
   recent_seller: 'Recent seller / 1031',
   sos_dissolved: 'SoS dissolved/inactive',
   sos_resolved: 'SoS resolved',
+  zoning_change: 'Zoning / land-use change',
+  permit_activity: 'Permit activity',
+  nearby_listing: 'Nearby listing',
+  probate_estate: 'Probate / estate',
+  flood_zone: 'Flood zone',
+  related_entity: 'Related entity cluster',
 };
 
 export function ParcelDetailPage() {
   const { pin = '' } = useParams();
   const [parcel, setParcel] = useState<ParcelDetail | null>(null);
+  const [outreach, setOutreach] = useState<OutreachDrafts | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -30,9 +37,13 @@ export function ParcelDetailPage() {
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    getParcel(pin)
-      .then((data) => {
-        if (!cancelled) setParcel(data);
+    setOutreach(null);
+    Promise.all([getParcel(pin), getParcelOutreach(pin)])
+      .then(([data, drafts]) => {
+        if (!cancelled) {
+          setParcel(data);
+          setOutreach(drafts);
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load parcel');
@@ -134,7 +145,27 @@ export function ParcelDetailPage() {
             />
             <Fact label="SoS status" value={parcel.owner?.sosStatus || '—'} />
             <Fact label="Registered agent" value={parcel.owner?.sosRegisteredAgent || '—'} />
+            <Fact label="Flood zone" value={parcel.floodZone || '—'} />
+            <Fact
+              label="Portfolio score"
+              value={
+                parcel.owner?.portfolioScore != null ? String(parcel.owner.portfolioScore) : '—'
+              }
+            />
           </dl>
+
+          {outreach ? (
+            <div className="border-pine/50 mt-10 border-t pt-6">
+              <h3 className="font-display text-xl font-bold text-white">Outreach drafts</h3>
+              <p className="text-fog mt-3 text-xs tracking-[0.16em] uppercase">Call script</p>
+              <p className="mt-2 text-sm text-mist">{outreach.callScript}</p>
+              <p className="text-fog mt-5 text-xs tracking-[0.16em] uppercase">Email</p>
+              <p className="mt-2 text-sm font-semibold text-white">{outreach.emailSubject}</p>
+              <pre className="text-mist mt-2 whitespace-pre-wrap font-sans text-sm">
+                {outreach.emailBody}
+              </pre>
+            </div>
+          ) : null}
 
           {parcel.signals.length ? (
             <div className="border-pine/50 mt-10 border-t pt-6">
@@ -212,6 +243,13 @@ export function ParcelDetailPage() {
                     ['Foreclosure', components.foreclosure ?? 0],
                     ['SoS boost', components.sosBoost ?? 0],
                     ['FMV boost', components.fmvBoost ?? 0],
+                    ['OOS decay', components.oosDecay ?? 0],
+                    ['Portfolio cluster', components.portfolioCluster ?? 0],
+                    ['Zoning', components.zoningWatch ?? 0],
+                    ['Permits', components.permitActivity ?? 0],
+                    ['Nearby listing', components.nearbyListing ?? 0],
+                    ['Probate', components.probateEstate ?? 0],
+                    ['Flood', components.floodRisk ?? 0],
                   ] as const
                 ).map(([label, pts]) => (
                   <li key={label} className="flex justify-between border-b border-white/5 py-2">

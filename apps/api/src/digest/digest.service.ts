@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DEFAULT_DIGEST_FMV_FLOOR, type ScoreComponents } from '@cre/shared';
+import {
+  DEFAULT_DIGEST_FMV_FLOOR,
+  HOT_SIGNAL_TYPES,
+  type ScoreComponents,
+} from '@cre/shared';
 import { AppConfigService } from '../app-config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
@@ -11,6 +15,8 @@ export interface DigestPreviewResult {
   subject: string;
   html: string;
   leads: DigestLeadRow[];
+  hotLeads: DigestLeadRow[];
+  evergreenLeads: DigestLeadRow[];
 }
 
 @Injectable()
@@ -197,6 +203,7 @@ export class DigestService {
     const candidates = await this.selectTopLeads(topN);
 
     const weekOf = formatWeekOf(new Date());
+    const hotSet = new Set<string>(HOT_SIGNAL_TYPES);
     const leads: DigestLeadRow[] = candidates.map((c, i) => {
       const whyNow = this.scoring.buildWhyNow({
         deedDate: c.deedDate,
@@ -213,6 +220,7 @@ export class DigestService {
         sosStatus: c.sosStatus,
         contactHint: c.contactHint,
       });
+      const hot = c.signalTypes.some((t) => hotSet.has(t));
 
       return {
         rank: i + 1,
@@ -223,19 +231,24 @@ export class DigestService {
         whyNow,
         ownerName: c.ownerName,
         parcelLink: linkBase,
+        hot,
       };
     });
 
+    const hotLeads = leads.filter((l) => l.hot).map((l, i) => ({ ...l, rank: i + 1 }));
+    const evergreenLeads = leads.filter((l) => !l.hot).map((l, i) => ({ ...l, rank: i + 1 }));
+
     const countyName = this.config.get<string>('countyName') ?? 'Greenville';
-    const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new)`;
+    const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new, ${hotLeads.length} hot)`;
     const html = renderDigestHtml({
       weekOf,
       countyName,
-      leads,
+      hotLeads,
+      evergreenLeads,
     });
 
     if (!send) {
-      return { subject, html, leads };
+      return { subject, html, leads, hotLeads, evergreenLeads };
     }
 
     const digest = await this.prisma.digest.create({
@@ -265,7 +278,7 @@ export class DigestService {
     });
 
     this.logger.log(`Digest ${digest.id} sent with ${leads.length} leads`);
-    return { subject, html, leads, digestId: digest.id };
+    return { subject, html, leads, hotLeads, evergreenLeads, digestId: digest.id };
   }
 
   async sendWeekly(): Promise<{ digestId: string; leadCount: number }> {

@@ -8,6 +8,9 @@ import {
   scoreTaxDelinquent,
   scoreFmvBoost,
   scoreSignals,
+  scoreOosDecay,
+  scorePortfolioCluster,
+  buildOutreachDrafts,
   normalizeOwnerName,
   isEntityOwner,
   isAbsenteeOwner,
@@ -109,7 +112,7 @@ describe('owner + address normalization', () => {
   });
 });
 
-describe('v2 signal / tax / fmv components', () => {
+describe('v2/v3 signal / tax / fmv components', () => {
   it('scores tax delinquency from paidDate null', () => {
     expect(scoreTaxDelinquent({ paidDate: null, totalTax: 1200 })).toBe(15);
     expect(scoreTaxDelinquent({ paidDate: new Date(), totalTax: 1200 })).toBe(0);
@@ -122,10 +125,44 @@ describe('v2 signal / tax / fmv components', () => {
   });
 
   it('maps signal types to points', () => {
-    const pts = scoreSignals(['foreclosure', 'mortgage_maturity', 'sos_dissolved']);
+    const pts = scoreSignals(['foreclosure', 'mortgage_maturity', 'sos_dissolved', 'zoning_change']);
     expect(pts.foreclosure).toBe(25);
     expect(pts.mortgageMaturity).toBe(20);
     expect(pts.sosBoost).toBe(10);
+    expect(pts.zoningWatch).toBe(12);
+  });
+
+  it('scores OOS decay for long-hold out-of-state absentees', () => {
+    const asOf = new Date('2026-07-24T00:00:00Z');
+    expect(
+      scoreOosDecay({
+        deedDate: new Date('2005-01-01T00:00:00Z'),
+        mailingState: 'GA',
+        homeState: 'SC',
+        isAbsentee: true,
+        asOf,
+      }),
+    ).toBe(10);
+  });
+
+  it('scores portfolio clusters', () => {
+    expect(scorePortfolioCluster(2)).toBe(0);
+    expect(scorePortfolioCluster(6)).toBe(6);
+    expect(scorePortfolioCluster(12)).toBe(8);
+  });
+
+  it('builds outreach drafts', () => {
+    const drafts = buildOutreachDrafts({
+      ownerName: 'ACME HOLDINGS LLC',
+      situsAddress: '500 PEARL AVE',
+      pin: '123',
+      whyNow: 'Owned 20 years by an out-of-state entity.',
+      propType: 'COMMERCIAL',
+      agentName: 'Alex Agent',
+    });
+    expect(drafts.callScript).toContain('500 PEARL AVE');
+    expect(drafts.emailSubject).toContain('500 PEARL AVE');
+    expect(drafts.emailBody).toContain('Alex Agent');
   });
 });
 

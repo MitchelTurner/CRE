@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
-import { scoreParcel, type SignalType } from '@cre/shared';
+import { mergeScoreWeights, scoreParcel, type SignalType } from '@cre/shared';
 import { AppConfigService } from '../app-config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhyNowService } from './why-now.service';
@@ -18,6 +18,13 @@ const KNOWN_SIGNAL_TYPES = new Set<SignalType>([
   'recent_seller',
   'sos_dissolved',
   'sos_resolved',
+  'zoning_change',
+  'permit_activity',
+  'nearby_listing',
+  'probate_estate',
+  'flood_zone',
+  'related_entity',
+  'tax_sale',
 ]);
 
 @Injectable()
@@ -37,11 +44,12 @@ export class ScoringService {
     });
 
     try {
-      const [weights, landUsePriority] = await Promise.all([
+      const [rawWeights, landUsePriority] = await Promise.all([
         this.appConfig.getScoreWeights(),
         this.appConfig.getLandUsePriority(),
       ]);
-      const scoreVersion = this.config.get<string>('scoreVersion') ?? 'v2';
+      const weights = mergeScoreWeights(rawWeights);
+      const scoreVersion = this.config.get<string>('scoreVersion') ?? 'v3';
       const homeState = this.config.get<string>('countyHomeState') ?? 'SC';
 
       const ownerCounts = await this.prisma.parcel.groupBy({
@@ -52,6 +60,19 @@ export class ScoringService {
       const countByOwner = new Map<string, number>();
       for (const row of ownerCounts) {
         if (row.ownerId) countByOwner.set(row.ownerId, row._count._all);
+      }
+
+      // Precompute related parcel counts from graph JSON
+      const owners = await this.prisma.owner.findMany({
+        select: { id: true, relatedOwnerIds: true },
+      });
+      const relatedCountByOwner = new Map<string, number>();
+      for (const o of owners) {
+        const related = Array.isArray(o.relatedOwnerIds) ? (o.relatedOwnerIds as string[]) : [];
+        const own = countByOwner.get(o.id) ?? 0;
+        let relatedParcels = 0;
+        for (const rid of related) relatedParcels += countByOwner.get(rid) ?? 0;
+        relatedCountByOwner.set(o.id, own + relatedParcels);
       }
 
       const now = new Date();
@@ -72,6 +93,9 @@ export class ScoringService {
       for (const parcel of parcels) {
         const owner = parcel.owner;
         const ownerCount = owner ? (countByOwner.get(owner.id) ?? 1) : 1;
+        const relatedCount = owner
+          ? (relatedCountByOwner.get(owner.id) ?? ownerCount)
+          : ownerCount;
         const mailingStreet =
           owner?.mailingAddress?.split(',')[0]?.trim() ?? owner?.mailingAddress ?? null;
         const signalTypes = [
@@ -89,6 +113,7 @@ export class ScoringService {
           mailingState: owner?.mailingState,
           ownerName: owner?.nameRaw ?? 'UNKNOWN',
           activeCommercialParcelCount: ownerCount,
+          relatedCommercialParcelCount: relatedCount,
           landUseCode: parcel.landUseCode,
           landUsePriorityMap: landUsePriority,
           paidDate: parcel.paidDate,
@@ -136,7 +161,6 @@ export class ScoringService {
     }
   }
 
-  /** Expose whyNow for digest generation. */
   buildWhyNow(input: Parameters<WhyNowService['generate']>[0]): string {
     return this.whyNow.generate(input);
   }

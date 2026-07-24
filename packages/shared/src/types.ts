@@ -10,6 +10,15 @@ export interface ScoreComponents {
   recentSeller: number;
   sosBoost: number;
   fmvBoost: number;
+  /** Out-of-state long-hold landlord decay. */
+  oosDecay: number;
+  /** Related-entity / portfolio cluster boost. */
+  portfolioCluster: number;
+  zoningWatch: number;
+  permitActivity: number;
+  nearbyListing: number;
+  probateEstate: number;
+  floodRisk: number;
   /** Present when deedDate is missing — hold period scored 0. */
   missingDeedDate?: boolean;
 }
@@ -28,6 +37,13 @@ export interface ScoreWeights {
   sosDissolved: number;
   sosResolved: number;
   fmvBoostMax: number;
+  oosDecayMax: number;
+  portfolioClusterMax: number;
+  zoningWatch: number;
+  permitActivity: number;
+  nearbyListing: number;
+  probateEstate: number;
+  floodRisk: number;
 }
 
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
@@ -40,10 +56,17 @@ export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
   taxDelinquent: 15,
   mortgageMaturity: 20,
   foreclosure: 25,
-  recentSeller: 0, // separate lead type; optional small boost
+  recentSeller: 0,
   sosDissolved: 10,
   sosResolved: 3,
   fmvBoostMax: 5,
+  oosDecayMax: 10,
+  portfolioClusterMax: 8,
+  zoningWatch: 12,
+  permitActivity: 8,
+  nearbyListing: 6,
+  probateEstate: 18,
+  floodRisk: 4,
 };
 
 export type SignalType =
@@ -52,7 +75,28 @@ export type SignalType =
   | 'foreclosure'
   | 'recent_seller'
   | 'sos_dissolved'
-  | 'sos_resolved';
+  | 'sos_resolved'
+  | 'zoning_change'
+  | 'permit_activity'
+  | 'nearby_listing'
+  | 'probate_estate'
+  | 'flood_zone'
+  | 'related_entity'
+  | 'tax_sale';
+
+/** Catalyst signals that qualify a lead for the digest "Hot this week" section. */
+export const HOT_SIGNAL_TYPES: SignalType[] = [
+  'tax_delinquent',
+  'mortgage_maturity',
+  'foreclosure',
+  'recent_seller',
+  'sos_dissolved',
+  'zoning_change',
+  'permit_activity',
+  'nearby_listing',
+  'probate_estate',
+  'tax_sale',
+];
 
 export interface FieldMap {
   pin: string;
@@ -119,3 +163,11 @@ export const DEFAULT_LANDUSE_PRIORITY: Record<string, number> = {
 
 /** Minimum FMV for digest inclusion (tunable via AppConfig). */
 export const DEFAULT_DIGEST_FMV_FLOOR = 250000;
+
+/** Greenville County approximate map bounds (WGS84). */
+export const GREENVILLE_MAP_BOUNDS = {
+  minLat: 34.65,
+  maxLat: 35.15,
+  minLon: -82.65,
+  maxLon: -82.15,
+};

@@ -5,6 +5,8 @@ import { ApiTokenGuard } from '../auth/api-token.guard';
 import { JOBS, QUEUES } from '../jobs/queues';
 import { PrismaService } from '../prisma/prisma.service';
 import { DigestService } from '../digest/digest.service';
+import { FeedbackTuningService } from '../scoring/feedback-tuning.service';
+import { CrmSyncService } from '../leads/crm-sync.service';
 
 @Controller('admin')
 @UseGuards(ApiTokenGuard)
@@ -15,6 +17,8 @@ export class AdminController {
     @InjectQueue(QUEUES.DIGEST) private readonly digestQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly digest: DigestService,
+    private readonly feedbackTuning: FeedbackTuningService,
+    private readonly crmSync: CrmSyncService,
   ) {}
 
   @Post('sync')
@@ -55,8 +59,18 @@ export class AdminController {
       jobId: job.id,
       jobName: JOBS.ENRICHMENT_PASS,
       topN: n,
-      note: 'Enrichment queued (tax/distress/SoS/ROD/skip-trace). Watch Recent sync runs for enrichment_pass.',
+      note: 'Enrichment queued (tax/distress/SoS/ROD/planning/permits/listings/probate/flood/HITL).',
     };
+  }
+
+  @Post('tune-weights')
+  tuneWeights() {
+    return this.feedbackTuning.tuneFromFeedback(5);
+  }
+
+  @Post('crm/sync')
+  syncCrm() {
+    return this.crmSync.syncEligible();
   }
 
   @Get('sync-runs')

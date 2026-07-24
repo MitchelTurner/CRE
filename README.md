@@ -104,7 +104,11 @@ See `.env.example`. County-specific values (layer URL, field map, land-use codes
 
 ## Deploy (Railway)
 
-Provision Postgres + Redis, set env vars from `.env.example`, deploy the Dockerfile (web + worker are the same process in v1). Run `prisma migrate deploy` on boot (included in `Dockerfile` CMD).
+1. Provision **Postgres** and **Redis** plugins and link them to the web service (so `DATABASE_URL` and `REDIS_URL` are injected).
+2. Set at least: `API_TOKEN`, `DIGEST_RECIPIENTS`, `DIGEST_FROM`, and optionally `RESEND_API_KEY`.
+3. Deploy via the repo `Dockerfile` (web + worker are one process in v1). Entrypoint runs `prisma migrate deploy` then starts Nest on `0.0.0.0:$PORT`.
+
+If the healthcheck fails with “service unavailable”, check deploy logs for missing `DATABASE_URL` / `REDIS_URL` — the process will not bind a port until both are present.
 
 ## Legal / etiquette
 

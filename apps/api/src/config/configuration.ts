@@ -9,7 +9,12 @@ import {
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   databaseUrl: process.env.DATABASE_URL,
-  redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  // Railway may expose REDIS_URL or REDIS_PRIVATE_URL depending on service linking.
+  redisUrl:
+    process.env.REDIS_URL ||
+    process.env.REDIS_PRIVATE_URL ||
+    process.env.redis_url ||
+    'redis://localhost:6379',
   apiToken: process.env.API_TOKEN ?? '',
   resendApiKey: process.env.RESEND_API_KEY ?? '',
   digestFrom: process.env.DIGEST_FROM ?? 'leads@example.com',

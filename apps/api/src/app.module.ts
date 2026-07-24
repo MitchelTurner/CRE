@@ -13,6 +13,7 @@ import { LeadsModule } from './leads/leads.module';
 import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './app-config/app-config.module';
 import { HealthController } from './health.controller';
+import { buildRedisConnection } from './config/redis.connection';
 
 @Module({
   imports: [
@@ -24,9 +25,7 @@ import { HealthController } from './health.controller';
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        connection: {
-          url: config.getOrThrow<string>('redisUrl'),
-        },
+        connection: buildRedisConnection(config.getOrThrow<string>('redisUrl')),
       }),
     }),
     PrismaModule,

@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+coverage
+*.log
+data/layer-inspection.json
+.cursor
+README.md
+**/*.spec.ts
+**/test
+apps/api/coverage

@@ -18,7 +18,12 @@ export class AppConfigService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    try {
+      await this.seedDefaults();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`AppConfig seed failed (continuing boot): ${message}`);
+    }
   }
 
   async seedDefaults(): Promise<void> {

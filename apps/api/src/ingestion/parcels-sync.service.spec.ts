@@ -24,6 +24,7 @@ describe('ParcelsSyncService (fixture server)', () => {
           return { id: `run-${syncRuns}`, ...data };
         }),
         update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => data),
+        findFirst: jest.fn(async () => null),
       },
       owner: {
         upsert: jest.fn(
@@ -72,6 +73,7 @@ describe('ParcelsSyncService (fixture server)', () => {
           },
         ),
         updateMany: jest.fn(async () => ({ count: 0 })),
+        count: jest.fn(async () => 0),
       },
     };
 
@@ -93,6 +95,9 @@ describe('ParcelsSyncService (fixture server)', () => {
       const url = String(input);
       if (!url.includes('/query')) {
         return new Response(JSON.stringify(meta), { status: 200 });
+      }
+      if (url.includes('returnCountOnly')) {
+        return new Response(JSON.stringify({ count: 4 }), { status: 200 });
       }
       if (url.includes('resultOffset=0')) {
         return new Response(JSON.stringify(page0), { status: 200 });

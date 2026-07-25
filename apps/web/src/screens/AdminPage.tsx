@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   enqueueEnrich,
   enqueueSync,
+  getInventory,
   listSyncRuns,
   previewDigest,
+  reactivateParcels,
   sendDigest,
   syncCrm,
   tuneWeights,
@@ -16,14 +18,20 @@ export function AdminPage() {
   const [runs, setRuns] = useState<SyncRun[]>([]);
   const [preview, setPreview] = useState<DigestPreview | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [inventory, setInventory] = useState<{
+    total: number;
+    activeCommercial: number;
+    inactiveCommercial: number;
+  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const { push } = useToast();
 
   async function refreshRuns() {
-    const data = await listSyncRuns();
+    const [data, inv] = await Promise.all([listSyncRuns(), getInventory()]);
     setRuns(data);
+    setInventory(inv);
   }
 
   useEffect(() => {
@@ -78,6 +86,16 @@ export function AdminPage() {
         </p>
       </div>
 
+      {inventory ? (
+        <p className="text-fog mb-4 text-sm">
+          Inventory: {inventory.activeCommercial.toLocaleString()} active commercial
+          {inventory.inactiveCommercial > 0
+            ? ` · ${inventory.inactiveCommercial.toLocaleString()} inactive (soft-deleted)`
+            : ''}
+          {inventory.total === 0 ? ' · empty — run a full sync' : ''}
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
@@ -87,6 +105,16 @@ export function AdminPage() {
         >
           {busy === 'Sync' ? 'Enqueueing…' : 'Run full sync'}
         </button>
+        {(inventory?.inactiveCommercial ?? 0) > 0 || (inventory?.activeCommercial ?? 0) === 0 ? (
+          <button
+            type="button"
+            disabled={!!busy}
+            onClick={() => void run('Reactivate', () => reactivateParcels())}
+            className="border-brass/60 text-brass hover:bg-brass/10 border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+          >
+            {busy === 'Reactivate' ? 'Restoring…' : 'Restore inactive parcels'}
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={!!busy}

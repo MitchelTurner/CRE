@@ -23,6 +23,9 @@ describe('ArcGisClient pagination', () => {
         return new Response(JSON.stringify(meta), { status: 200 });
       }
 
+      if (url.includes('returnCountOnly')) {
+        return new Response(JSON.stringify({ count: 4 }), { status: 200 });
+      }
       if (url.includes('resultOffset=0')) {
         return new Response(JSON.stringify(page0), { status: 200 });
       }
@@ -58,6 +61,52 @@ describe('ArcGisClient pagination', () => {
     ]);
     expect(calls.some((u) => u.includes('resultOffset=0'))).toBe(true);
     expect(calls.some((u) => u.includes('resultOffset=2'))).toBe(true);
+  });
+
+  it('continues paging when exceededTransferLimit is true on a short page', async () => {
+    const meta = loadFixture('layer-metadata.json');
+    let offset0Hits = 0;
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      if (!url.includes('/query')) {
+        return new Response(JSON.stringify(meta), { status: 200 });
+      }
+      if (url.includes('resultOffset=0')) {
+        offset0Hits += 1;
+        return new Response(
+          JSON.stringify({
+            features: [
+              { attributes: { OBJECTID: 1, PIN: 'A' } },
+            ],
+            exceededTransferLimit: true,
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes('resultOffset=1')) {
+        return new Response(
+          JSON.stringify({
+            features: [{ attributes: { OBJECTID: 2, PIN: 'B' } }],
+            exceededTransferLimit: false,
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ features: [] }), { status: 200 });
+    };
+
+    const client = ArcGisClient.create({
+      layerUrl: 'https://example.test/MapServer/52',
+      pageDelayMs: 0,
+      fetchImpl,
+    });
+
+    const pins: string[] = [];
+    for await (const attrs of client.iterateFeatures({ pageSize: 2 })) {
+      pins.push(String(attrs.PIN));
+    }
+    expect(pins).toEqual(['A', 'B']);
+    expect(offset0Hits).toBe(1);
   });
 
   it('retries on 5xx with backoff', async () => {

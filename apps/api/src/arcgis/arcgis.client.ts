@@ -59,16 +59,28 @@ export class ArcGisClient {
     return this.getJson<ArcGisQueryResponse>(`${this.layerUrl}/query?${qs.toString()}`);
   }
 
+  /** Server-side match count for a where clause (returnCountOnly). */
+  async countFeatures(where = '1=1'): Promise<number> {
+    const page = await this.query({ where, returnCountOnly: true });
+    if (typeof page.count !== 'number' || Number.isNaN(page.count)) {
+      throw new Error('ArcGIS returnCountOnly did not return a numeric count');
+    }
+    return page.count;
+  }
+
   /**
    * Full paginated attribute pull. Prefers resultOffset pagination when supported;
    * falls back to OBJECTID-range batching.
+   *
+   * Continues while `exceededTransferLimit` is true — ArcGIS often returns a short
+   * page with geometry even when more records remain.
    */
   async *iterateFeatures(options?: {
     where?: string;
     outFields?: string;
     pageSize?: number;
     includeGeometry?: boolean;
-    onPage?: (info: { offset: number; count: number }) => void;
+    onPage?: (info: { offset: number; count: number; exceededTransferLimit?: boolean }) => void;
   }): AsyncGenerator<Record<string, unknown>, void, unknown> {
     const meta = await this.getLayerMetadata();
     const pageSize = Math.min(
@@ -93,13 +105,19 @@ export class ArcGisClient {
           orderByFields: 'OBJECTID',
         });
         const features = page.features ?? [];
-        options?.onPage?.({ offset, count: features.length });
+        const exceeded = page.exceededTransferLimit === true;
+        options?.onPage?.({
+          offset,
+          count: features.length,
+          exceededTransferLimit: exceeded,
+        });
         if (features.length === 0) break;
         for (const f of features) {
           yield this.withCentroid(f.attributes, includeGeometry ? f.geometry : undefined);
         }
-        // Full page ⇒ possibly more; short page ⇒ done.
-        if (features.length < pageSize) break;
+        // More pages when transfer limit hit OR we filled the page.
+        const maybeMore = exceeded || features.length >= pageSize;
+        if (!maybeMore) break;
         offset += features.length;
         await sleep(this.pageDelayMs);
       }

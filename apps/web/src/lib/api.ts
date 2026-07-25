@@ -178,6 +178,21 @@ export function enqueueSync() {
   });
 }
 
+export function getInventory() {
+  return request<{
+    total: number;
+    active: number;
+    activeCommercial: number;
+    inactiveCommercial: number;
+  }>('/admin/inventory');
+}
+
+export function reactivateParcels() {
+  return request<{ reactivated: number; note?: string }>('/admin/parcels/reactivate', {
+    method: 'POST',
+  });
+}
+
 export function enqueueEnrich(topN = 25) {
   return request<{ enqueued: boolean; jobId: string; note?: string }>(
     `/admin/enrich?topN=${topN}`,

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DigestService } from '../digest/digest.service';
 import { FeedbackTuningService } from '../scoring/feedback-tuning.service';
 import { CrmSyncService } from '../leads/crm-sync.service';
+import { ParcelsSyncService } from '../ingestion/parcels-sync.service';
 
 @Controller('admin')
 @UseGuards(ApiTokenGuard)
@@ -19,6 +20,7 @@ export class AdminController {
     private readonly digest: DigestService,
     private readonly feedbackTuning: FeedbackTuningService,
     private readonly crmSync: CrmSyncService,
+    private readonly parcelsSync: ParcelsSyncService,
   ) {}
 
   @Post('sync')
@@ -90,6 +92,23 @@ export class AdminController {
       take: 10,
     });
     return { items: running };
+  }
+
+  @Get('inventory')
+  inventory() {
+    return this.parcelsSync.inventoryCounts();
+  }
+
+  @Post('parcels/reactivate')
+  async reactivateParcels() {
+    const result = await this.parcelsSync.reactivateAllCommercial();
+    return {
+      ...result,
+      note:
+        result.reactivated > 0
+          ? `Reactivated ${result.reactivated} commercial parcels. Run a full sync when ready.`
+          : 'No inactive commercial parcels to reactivate.',
+    };
   }
 
   @Post('digest/preview')

@@ -7,11 +7,29 @@ export function renderMarketReportHtml(input: {
   countyName: string;
   byLandUse: Array<{ bucket: string; parcel_count: number }>;
   byZip: Array<{ bucket: string; parcel_count: number }>;
+  bySubmarket: Array<{ bucket: string; parcel_count: number }>;
   holdBuckets: Array<{ bucket: string; parcel_count: number }>;
   absentee: { total: number; absentee: number; out_of_state: number };
   topAgents: Array<{ name: string; parcelCount: number; ownerCount: number }>;
+  comps: {
+    comp_count: number;
+    priced_count: number;
+    avg_price: number;
+    median_price: number;
+  };
+  marketBands: Array<{
+    id: string;
+    label: string;
+    capRateLow?: number;
+    capRateHigh?: number;
+    rentPsfNote?: string;
+  }>;
 }): string {
   const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : '—');
+  const money = (n: number) =>
+    n
+      ? `$${Math.round(n).toLocaleString('en-US')}`
+      : '—';
   const rows = (items: Array<{ bucket: string; parcel_count: number }>) =>
     items
       .map(
@@ -19,6 +37,16 @@ export function renderMarketReportHtml(input: {
           `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${esc(r.bucket)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">${r.parcel_count}</td></tr>`,
       )
       .join('');
+
+  const bandRows = input.marketBands
+    .map((b) => {
+      const cap =
+        b.capRateLow != null && b.capRateHigh != null
+          ? `${b.capRateLow}–${b.capRateHigh}%`
+          : '—';
+      return `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${esc(b.label)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${esc(cap)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${esc(b.rentPsfNote || '—')}</td></tr>`;
+    })
+    .join('');
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8" /><title>${esc(input.title)}</title></head>
@@ -34,8 +62,20 @@ export function renderMarketReportHtml(input: {
       <table width="100%">${rows(input.byLandUse)}</table>
     </td></tr>
     <tr><td style="padding:12px 28px;">
+      <h2 style="font-size:18px;">Submarket inventory</h2>
+      <table width="100%">${rows(input.bySubmarket)}</table>
+    </td></tr>
+    <tr><td style="padding:12px 28px;">
       <h2 style="font-size:18px;">Hold-period distribution (locked-up supply)</h2>
       <table width="100%">${rows(input.holdBuckets)}</table>
+    </td></tr>
+    <tr><td style="padding:12px 28px;">
+      <h2 style="font-size:18px;">Recorded sale comps (period)</h2>
+      <p>${input.comps.comp_count} deeds · ${input.comps.priced_count} with price · avg ${money(input.comps.avg_price)} · median ${money(input.comps.median_price)}</p>
+    </td></tr>
+    <tr><td style="padding:12px 28px;">
+      <h2 style="font-size:18px;">Indicative cap-rate bands (relationship use)</h2>
+      <table width="100%"><tr><th align="left" style="padding:6px 8px;">Submarket</th><th align="left" style="padding:6px 8px;">Cap band</th><th align="left" style="padding:6px 8px;">Note</th></tr>${bandRows}</table>
     </td></tr>
     <tr><td style="padding:12px 28px;">
       <h2 style="font-size:18px;">Ownership</h2>
@@ -54,7 +94,7 @@ export function renderMarketReportHtml(input: {
       <div style="font-size:13px;margin-top:4px;">${esc(input.agentPhone)} · ${esc(input.agentEmail)}</div>
     </td></tr>
     <tr><td style="padding:14px 28px;font-size:11px;color:#9ca3af;">
-      Methodology: public Greenville County parcel/ownership records ingested and scored by Greenville CRE Lead Engine. Not an appraisal. For relationship use only.
+      Methodology: public Greenville County parcel/ownership records ingested and scored by Greenville CRE Lead Engine. Cap bands are indicative conversation aids, not appraisals. For relationship use only.
     </td></tr>
   </table>
 </body></html>`;

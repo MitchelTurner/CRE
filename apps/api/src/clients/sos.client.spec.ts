@@ -1,4 +1,28 @@
-import { isDissolvedStatus, createSosClient, OpenSosDataClient } from './sos.client';
+import {
+  isDissolvedStatus,
+  createSosClient,
+  OpenSosDataClient,
+  extractMembers,
+} from './sos.client';
+
+describe('extractMembers', () => {
+  it('pulls string and object officer shapes', () => {
+    expect(
+      extractMembers({
+        officers: [{ name: 'Jane Doe' }, { full_name: 'John Smith' }],
+        managers: ['Alex Manager'],
+        members: [{ officer_name: 'Pat Member' }, ''],
+      }),
+    ).toEqual(['Pat Member', 'Jane Doe', 'John Smith', 'Alex Manager']);
+  });
+
+  it('dedupes and caps at 20', () => {
+    const many = Array.from({ length: 25 }, (_, i) => `Person ${i}`);
+    const out = extractMembers({ officers: [...many, 'Person 0'] });
+    expect(out).toHaveLength(20);
+    expect(out[0]).toBe('Person 0');
+  });
+});
 
 describe('isDissolvedStatus', () => {
   it.each(['Dissolved', 'Forfeited', 'Inactive', 'Revoked', 'Cancelled'])(

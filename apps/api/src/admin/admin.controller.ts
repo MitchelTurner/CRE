@@ -13,6 +13,7 @@ import { InviteListService } from '../host/invite-list.service';
 import { MatchingService } from '../events/matching.service';
 import { ConfigService } from '@nestjs/config';
 import { SignalService } from '../enrichment/signal.service';
+import { EnrichmentService } from '../enrichment/enrichment.service';
 import { normalizeOwnerName } from '@cre/shared';
 
 @Controller('admin')
@@ -33,6 +34,7 @@ export class AdminController {
     private readonly inviteLists: InviteListService,
     private readonly matching: MatchingService,
     private readonly signals: SignalService,
+    private readonly enrichment: EnrichmentService,
     private readonly config: ConfigService,
   ) {}
 
@@ -237,6 +239,53 @@ export class AdminController {
     },
   ) {
     return this.inviteLists.build(body ?? {});
+  }
+
+  @Post('submarkets/assign')
+  async assignSubmarkets() {
+    const n = await this.enrichment.assignSubmarkets();
+    return { assigned: n, note: `Tagged ${n} parcels with submarket boxes.` };
+  }
+
+  /**
+   * Judgment / divorce / public lien paste (Name[, amount][, case#]).
+   * Public court index only — no login scraping.
+   */
+  @Post('liens/paste')
+  async liensPaste(@Body('text') text: string) {
+    const lines = this.matching.parsePasteLines(text || '');
+    const rows = lines.map((l) => ({
+      name: l.nameRaw,
+      amount: l.company && /^\d/.test(l.company) ? Number(l.company.replace(/[^\d.]/g, '')) : undefined,
+      caseNumber: l.title,
+      kind: 'judgment',
+    }));
+    const n = await this.enrichment.ingestJudgmentLiens(rows);
+    return { parsed: rows.length, signalsCreated: n };
+  }
+
+  /** Broker roster paste → Person source=broker_directory for event matching. */
+  @Post('brokers/paste')
+  async brokersPaste(@Body('text') text: string) {
+    const rows = this.matching.parsePasteLines(text || '');
+    let n = 0;
+    let matched = 0;
+    for (const row of rows) {
+      const person = await this.matching.upsertPerson({
+        nameRaw: row.nameRaw,
+        company: row.company,
+        title: row.title ?? 'broker',
+        source: 'broker_directory',
+      });
+      const hits = await this.matching.matchPerson(person.id);
+      if (hits.length) matched += 1;
+      n += 1;
+    }
+    return {
+      upserted: n,
+      matched,
+      note: `Broker directory: ${n} upserted, ${matched} matched to owners.`,
+    };
   }
 
   /**

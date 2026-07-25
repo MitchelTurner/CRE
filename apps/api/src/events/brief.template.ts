@@ -92,8 +92,12 @@ export function templateOpener(input: {
   personName: string;
   parcelAddress: string;
   holdYears: number | null;
+  marketBandNote?: string | null;
 }): string {
   const hold =
     input.holdYears != null ? `after ${input.holdYears}+ years` : 'when timing is right';
-  return `Hi ${input.personName.split(' ')[0] || input.personName} — curious if you've thought about ${input.parcelAddress} ${hold}. Happy to share what we're seeing on pricing.`;
+  const band = input.marketBandNote?.trim()
+    ? ` ${input.marketBandNote.trim()}.`
+    : '';
+  return `Hi ${input.personName.split(' ')[0] || input.personName} — curious if you've thought about ${input.parcelAddress} ${hold}.${band} Happy to share what we're seeing on pricing.`;
 }

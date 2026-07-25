@@ -82,10 +82,28 @@ export class WhyNowService {
     if (signals.has('probate_estate') || (input.components.probateEstate ?? 0) > 0) {
       catalysts.push('possible estate / probate');
     }
-    if (signals.has('sos_dissolved')) {
-      catalysts.push(`SoS status ${input.sosStatus || 'dissolved/inactive'}`);
+    if (signals.has('judgment_lien') || (input.components.judgmentLien ?? 0) > 0) {
+      catalysts.push('judgment / lien pressure');
+    }
+    if (signals.has('vacancy_proxy') || (input.components.vacancyProxy ?? 0) > 0) {
+      catalysts.push('vacancy / lease-roll proxy');
+    }
+    if (signals.has('deed_comp') || (input.components.recentSeller ?? 0) > 0) {
+      catalysts.push('recent deed / sale comp');
     } else if (signals.has('recent_seller')) {
       catalysts.push('recent deed / possible 1031 clock');
+    }
+    if (signals.has('sos_dissolved')) {
+      catalysts.push(`SoS status ${input.sosStatus || 'dissolved/inactive'}`);
+    }
+    if ((input.components.taxSeverity ?? 0) > 0) {
+      catalysts.push('elevated tax amount');
+    }
+    if ((input.components.loanPressure ?? 0) > 0) {
+      catalysts.push('material loan vs FMV');
+    }
+    if ((input.components.submarketFit ?? 0) > 0) {
+      catalysts.push('priority submarket');
     }
     if ((input.components.oosDecay ?? 0) > 0) {
       catalysts.push('long-hold out-of-state landlord');

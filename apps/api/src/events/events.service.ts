@@ -36,6 +36,15 @@ export class EventsService {
       take: 200,
       include: {
         _count: { select: { attendees: true, briefs: true } },
+        attendees: {
+          take: 40,
+          orderBy: { id: 'asc' },
+          include: {
+            person: {
+              select: { id: true, nameRaw: true, company: true, title: true },
+            },
+          },
+        },
       },
     });
 
@@ -225,5 +234,16 @@ export class EventsService {
       linked += 1;
     }
     return { linked };
+  }
+
+  async markMet(eventId: string, personId: string, met = true) {
+    try {
+      return await this.prisma.eventAttendee.update({
+        where: { eventId_personId: { eventId, personId } },
+        data: { metAt: met ? new Date() : null },
+      });
+    } catch {
+      throw new NotFoundException('Attendee link not found');
+    }
   }
 }

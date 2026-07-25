@@ -5,7 +5,11 @@ export interface ScoreComponents {
   multiParcel: number;
   landUsePriority: number;
   taxDelinquent: number;
+  /** Extra points when tax amount / severity is high. */
+  taxSeverity: number;
   mortgageMaturity: number;
+  /** Extra when loan amount is material vs FMV. */
+  loanPressure: number;
   foreclosure: number;
   recentSeller: number;
   sosBoost: number;
@@ -19,6 +23,9 @@ export interface ScoreComponents {
   nearbyListing: number;
   probateEstate: number;
   floodRisk: number;
+  judgmentLien: number;
+  vacancyProxy: number;
+  submarketFit: number;
   /** Present when deedDate is missing — hold period scored 0. */
   missingDeedDate?: boolean;
 }
@@ -31,7 +38,9 @@ export interface ScoreWeights {
   multiParcel: number;
   landUsePriorityMax: number;
   taxDelinquent: number;
+  taxSeverityMax: number;
   mortgageMaturity: number;
+  loanPressureMax: number;
   foreclosure: number;
   recentSeller: number;
   sosDissolved: number;
@@ -44,6 +53,9 @@ export interface ScoreWeights {
   nearbyListing: number;
   probateEstate: number;
   floodRisk: number;
+  judgmentLien: number;
+  vacancyProxy: number;
+  submarketFitMax: number;
 }
 
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
@@ -54,9 +66,11 @@ export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
   multiParcel: 10,
   landUsePriorityMax: 15,
   taxDelinquent: 15,
+  taxSeverityMax: 8,
   mortgageMaturity: 20,
+  loanPressureMax: 8,
   foreclosure: 25,
-  recentSeller: 0,
+  recentSeller: 8,
   sosDissolved: 10,
   sosResolved: 3,
   fmvBoostMax: 5,
@@ -67,6 +81,9 @@ export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
   nearbyListing: 6,
   probateEstate: 18,
   floodRisk: 4,
+  judgmentLien: 12,
+  vacancyProxy: 7,
+  submarketFitMax: 4,
 };
 
 export type SignalType =
@@ -82,7 +99,10 @@ export type SignalType =
   | 'probate_estate'
   | 'flood_zone'
   | 'related_entity'
-  | 'tax_sale';
+  | 'tax_sale'
+  | 'deed_comp'
+  | 'judgment_lien'
+  | 'vacancy_proxy';
 
 /** Catalyst signals that qualify a lead for the digest "Hot this week" section. */
 export const HOT_SIGNAL_TYPES: SignalType[] = [
@@ -96,6 +116,9 @@ export const HOT_SIGNAL_TYPES: SignalType[] = [
   'nearby_listing',
   'probate_estate',
   'tax_sale',
+  'judgment_lien',
+  'vacancy_proxy',
+  'deed_comp',
 ];
 
 export interface FieldMap {

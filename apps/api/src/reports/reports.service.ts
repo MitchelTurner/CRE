@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
+import { CONFIG_KEYS, DEFAULT_SUBMARKET_BANDS, type SubmarketBand } from '@cre/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgentsService } from '../agents/agents.service';
+import { AppConfigService } from '../app-config/app-config.service';
 import { EmailService } from '../digest/email.service';
 import { REPORT_QUERIES } from './report-queries';
 import { renderMarketReportHtml } from './report.template';
@@ -16,6 +18,7 @@ export class ReportsService {
     private readonly config: ConfigService,
     private readonly agents: AgentsService,
     private readonly email: EmailService,
+    private readonly appConfig: AppConfigService,
   ) {}
 
   async generateQuarterly(emailAgent = true) {
@@ -24,22 +27,44 @@ export class ReportsService {
     periodStart.setMonth(periodStart.getMonth() - 3);
 
     const homeState = this.config.get<string>('countyHomeState') ?? 'SC';
-    const [byLandUse, byZip, holdBuckets, absenteeRows] = await Promise.all([
-      this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
-        REPORT_QUERIES.byLandUse,
-      ),
-      this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
-        REPORT_QUERIES.byZip,
-      ),
-      this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
-        REPORT_QUERIES.holdBuckets,
-      ),
-      this.prisma.$queryRawUnsafe<
-        Array<{ total: number; absentee: number; out_of_state: number }>
-      >(REPORT_QUERIES.absenteeShare, homeState),
-    ]);
+    const [byLandUse, byZip, holdBuckets, absenteeRows, bySubmarket, compsRows, marketBands] =
+      await Promise.all([
+        this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
+          REPORT_QUERIES.byLandUse,
+        ),
+        this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
+          REPORT_QUERIES.byZip,
+        ),
+        this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
+          REPORT_QUERIES.holdBuckets,
+        ),
+        this.prisma.$queryRawUnsafe<
+          Array<{ total: number; absentee: number; out_of_state: number }>
+        >(REPORT_QUERIES.absenteeShare, homeState),
+        this.prisma.$queryRawUnsafe<Array<{ bucket: string; parcel_count: number }>>(
+          REPORT_QUERIES.bySubmarket,
+        ),
+        this.prisma.$queryRawUnsafe<
+          Array<{
+            comp_count: number;
+            priced_count: number;
+            avg_price: number;
+            median_price: number;
+          }>
+        >(REPORT_QUERIES.saleComps, periodStart, periodEnd),
+        this.appConfig.getJson<SubmarketBand[]>(
+          CONFIG_KEYS.SUBMARKET_BANDS,
+          DEFAULT_SUBMARKET_BANDS,
+        ),
+      ]);
 
     const absentee = absenteeRows[0] ?? { total: 0, absentee: 0, out_of_state: 0 };
+    const comps = compsRows[0] ?? {
+      comp_count: 0,
+      priced_count: 0,
+      avg_price: 0,
+      median_price: 0,
+    };
     const topAgents = (await this.agents.rank(15)).items;
     const countyName = this.config.get<string>('countyName') ?? 'Greenville';
     const agentName = this.config.get<string>('outreachAgentName') ?? '';
@@ -55,8 +80,11 @@ export class ReportsService {
     const stats = {
       byLandUse,
       byZip,
+      bySubmarket,
       holdBuckets,
       absentee,
+      comps,
+      marketBands,
       topAgents,
       periodStart: periodStart.toISOString(),
       periodEnd: periodEnd.toISOString(),
@@ -71,9 +99,12 @@ export class ReportsService {
       countyName,
       byLandUse,
       byZip,
+      bySubmarket,
       holdBuckets,
       absentee,
       topAgents,
+      comps,
+      marketBands,
     });
 
     const report = await this.prisma.report.create({

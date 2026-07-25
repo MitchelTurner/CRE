@@ -3,6 +3,7 @@ import {
   createEvent,
   generateEventBrief,
   listEvents,
+  markEventAttendeeMet,
   pasteEventAttendees,
   syncEvents,
   updateEventStatus,
@@ -155,6 +156,7 @@ export function EventsPage() {
                         push(`Linked ${r.linked} people`, 'success');
                         setPasteText('');
                         setPasteFor(null);
+                        return reload();
                       })
                       .catch((err: unknown) =>
                         setError(err instanceof Error ? err.message : 'Paste failed'),
@@ -164,6 +166,42 @@ export function EventsPage() {
                   Ingest paste
                 </button>
               </div>
+            ) : null}
+            {ev.attendees?.length ? (
+              <ul className="border-pine/30 w-full space-y-2 border-t pt-3 md:basis-full">
+                {ev.attendees.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                  >
+                    <div>
+                      <span className="font-semibold text-white">{a.person.nameRaw}</span>
+                      {a.person.company ? (
+                        <span className="text-fog ml-2 text-xs">{a.person.company}</span>
+                      ) : null}
+                      {a.metAt ? (
+                        <span className="text-moss ml-2 text-xs">Met {formatDate(a.metAt)}</span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="border-pine-soft text-mist border px-2 py-1 text-xs font-semibold"
+                      onClick={() =>
+                        void markEventAttendeeMet(ev.id, a.personId, !a.metAt)
+                          .then(() => {
+                            push(a.metAt ? 'Cleared met' : 'Marked met', 'success');
+                            return reload();
+                          })
+                          .catch((err: unknown) =>
+                            setError(err instanceof Error ? err.message : 'Mark met failed'),
+                          )
+                      }
+                    >
+                      {a.metAt ? 'Clear met' : 'Mark met'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             ) : null}
           </li>
         ))}

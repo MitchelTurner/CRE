@@ -77,6 +77,58 @@ export function scoreTaxDelinquent(input: {
   return 0;
 }
 
+/** Extra urgency from tax amount (and optional years delinquent). */
+export function scoreTaxSeverity(input: {
+  totalTax: number | null | undefined;
+  yearsDelinquent?: number | null;
+  maxPoints?: number;
+}): number {
+  const maxPoints = input.maxPoints ?? DEFAULT_SCORE_WEIGHTS.taxSeverityMax;
+  const tax = input.totalTax ?? 0;
+  if (tax <= 0) return 0;
+  let pts = 0;
+  if (tax >= 100_000) pts = maxPoints;
+  else if (tax >= 50_000) pts = Math.round(maxPoints * 0.75);
+  else if (tax >= 15_000) pts = Math.round(maxPoints * 0.5);
+  else if (tax >= 5_000) pts = Math.round(maxPoints * 0.3);
+  const years = input.yearsDelinquent ?? 0;
+  if (years >= 3) pts = Math.min(maxPoints, pts + 2);
+  else if (years >= 2) pts = Math.min(maxPoints, pts + 1);
+  return pts;
+}
+
+/** Loan amount vs FMV — larger leverage near maturity = more pressure. */
+export function scoreLoanPressure(input: {
+  loanAmount: number | null | undefined;
+  fairMarketVal: number | null | undefined;
+  hasMaturitySignal?: boolean;
+  maxPoints?: number;
+}): number {
+  const maxPoints = input.maxPoints ?? DEFAULT_SCORE_WEIGHTS.loanPressureMax;
+  if (!input.hasMaturitySignal) return 0;
+  const loan = input.loanAmount ?? 0;
+  const fmv = input.fairMarketVal ?? 0;
+  if (loan <= 0) return Math.round(maxPoints * 0.25);
+  if (fmv > 0) {
+    const ltv = loan / fmv;
+    if (ltv >= 0.75) return maxPoints;
+    if (ltv >= 0.5) return Math.round(maxPoints * 0.7);
+    if (ltv >= 0.3) return Math.round(maxPoints * 0.4);
+  }
+  if (loan >= 2_000_000) return maxPoints;
+  if (loan >= 750_000) return Math.round(maxPoints * 0.6);
+  return Math.round(maxPoints * 0.3);
+}
+
+export function scoreSubmarketFit(
+  submarket: string | null | undefined,
+  priorityIds: string[] = ['downtown', 'woodruff', 'airport', 'pelham'],
+  maxPoints = DEFAULT_SCORE_WEIGHTS.submarketFitMax,
+): number {
+  if (!submarket) return 0;
+  return priorityIds.includes(submarket) ? maxPoints : 0;
+}
+
 /** Small boost for investable FMV bands. */
 export function scoreFmvBoost(
   fairMarketVal: number | null | undefined,
@@ -139,12 +191,15 @@ export function scoreSignals(
   | 'probateEstate'
   | 'floodRisk'
   | 'portfolioCluster'
+  | 'judgmentLien'
+  | 'vacancyProxy'
 > {
   const set = new Set(signalTypes);
   return {
     mortgageMaturity: set.has('mortgage_maturity') ? weights.mortgageMaturity : 0,
     foreclosure: set.has('foreclosure') || set.has('tax_sale') ? weights.foreclosure : 0,
-    recentSeller: set.has('recent_seller') ? weights.recentSeller : 0,
+    recentSeller:
+      set.has('recent_seller') || set.has('deed_comp') ? weights.recentSeller : 0,
     sosBoost: set.has('sos_dissolved')
       ? weights.sosDissolved
       : set.has('sos_resolved')
@@ -157,6 +212,8 @@ export function scoreSignals(
     probateEstate: set.has('probate_estate') ? weights.probateEstate : 0,
     floodRisk: set.has('flood_zone') ? weights.floodRisk : 0,
     portfolioCluster: set.has('related_entity') ? Math.round(weights.portfolioClusterMax * 0.5) : 0,
+    judgmentLien: set.has('judgment_lien') ? weights.judgmentLien : 0,
+    vacancyProxy: set.has('vacancy_proxy') ? weights.vacancyProxy : 0,
   };
 }
 
@@ -168,7 +225,9 @@ export function computeTotal(components: ScoreComponents): number {
     components.multiParcel +
     components.landUsePriority +
     components.taxDelinquent +
+    (components.taxSeverity ?? 0) +
     components.mortgageMaturity +
+    (components.loanPressure ?? 0) +
     components.foreclosure +
     components.recentSeller +
     components.sosBoost +
@@ -179,7 +238,10 @@ export function computeTotal(components: ScoreComponents): number {
     components.permitActivity +
     components.nearbyListing +
     components.probateEstate +
-    components.floodRisk;
+    components.floodRisk +
+    (components.judgmentLien ?? 0) +
+    (components.vacancyProxy ?? 0) +
+    (components.submarketFit ?? 0);
   return Math.min(100, Math.max(0, Math.round(total)));
 }
 
@@ -196,6 +258,10 @@ export function scoreParcel(input: {
   paidDate?: Date | null;
   totalTax?: number | null;
   fairMarketVal?: number | null;
+  loanAmount?: number | null;
+  yearsDelinquent?: number | null;
+  submarket?: string | null;
+  prioritySubmarkets?: string[];
   signalTypes?: SignalType[];
   homeState?: string;
   weights?: ScoreWeights;
@@ -217,6 +283,7 @@ export function scoreParcel(input: {
     totalTax: input.totalTax,
     points: weights.taxDelinquent,
   });
+  const taxDelinquent = Math.max(fromSignals.taxDelinquent, taxFromFields);
 
   const relatedCount =
     input.relatedCommercialParcelCount ?? input.activeCommercialParcelCount;
@@ -232,8 +299,22 @@ export function scoreParcel(input: {
       input.landUsePriorityMap,
       weights.landUsePriorityMax,
     ),
-    taxDelinquent: Math.max(fromSignals.taxDelinquent, taxFromFields),
+    taxDelinquent,
+    taxSeverity:
+      taxDelinquent > 0
+        ? scoreTaxSeverity({
+            totalTax: input.totalTax,
+            yearsDelinquent: input.yearsDelinquent,
+            maxPoints: weights.taxSeverityMax,
+          })
+        : 0,
     mortgageMaturity: fromSignals.mortgageMaturity,
+    loanPressure: scoreLoanPressure({
+      loanAmount: input.loanAmount,
+      fairMarketVal: input.fairMarketVal,
+      hasMaturitySignal: fromSignals.mortgageMaturity > 0,
+      maxPoints: weights.loanPressureMax,
+    }),
     foreclosure: fromSignals.foreclosure,
     recentSeller: fromSignals.recentSeller,
     sosBoost: fromSignals.sosBoost,
@@ -252,6 +333,13 @@ export function scoreParcel(input: {
     nearbyListing: fromSignals.nearbyListing,
     probateEstate: fromSignals.probateEstate,
     floodRisk: fromSignals.floodRisk,
+    judgmentLien: fromSignals.judgmentLien,
+    vacancyProxy: fromSignals.vacancyProxy,
+    submarketFit: scoreSubmarketFit(
+      input.submarket,
+      input.prioritySubmarkets,
+      weights.submarketFitMax,
+    ),
   };
 
   if (hold.missingDeedDate) components.missingDeedDate = true;

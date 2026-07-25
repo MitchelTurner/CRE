@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import {
+  assignSubmarket,
   inferMortgageMaturityDates,
   isMaturityWithinMonths,
   normalizeOwnerName,
@@ -71,10 +72,22 @@ export class EnrichmentService {
 
     let n = 0;
     for (const p of parcels) {
+      const totalTax = p.totalTax ?? 0;
+      // Without a paid history, approximate severity years from tax band.
+      const yearsDelinquent =
+        totalTax >= 50_000 ? 3 : totalTax >= 15_000 ? 2 : totalTax >= 5_000 ? 1 : 0;
       await this.signals.upsertSignal({
         parcelId: p.id,
         type: 'tax_delinquent',
-        payload: { pin: p.pin, totalTax: p.totalTax, reason: 'paidDate_null_with_tax_due' },
+        payload: {
+          pin: p.pin,
+          totalTax,
+          yearsDelinquent,
+          amount: totalTax,
+          reason: 'paidDate_null_with_tax_due',
+          severity:
+            totalTax >= 50_000 ? 'high' : totalTax >= 15_000 ? 'medium' : 'low',
+        },
       });
       n += 1;
     }
@@ -172,6 +185,26 @@ export class EnrichmentService {
                 });
               }
 
+              for (const member of entity.members ?? []) {
+                const exists = await this.prisma.contact.findFirst({
+                  where: {
+                    ownerId: owner.id,
+                    name: member,
+                    role: { in: ['officer', 'manager', 'member'] },
+                  },
+                });
+                if (!exists) {
+                  await this.prisma.contact.create({
+                    data: {
+                      ownerId: owner.id,
+                      name: member,
+                      role: 'officer',
+                      source: 'sos',
+                    },
+                  });
+                }
+              }
+
               await this.signals.upsertSignal({
                 parcelId: parcel.id,
                 type: isDissolvedStatus(entity.status) ? 'sos_dissolved' : 'sos_resolved',
@@ -180,6 +213,8 @@ export class EnrichmentService {
                   status: entity.status,
                   registeredAgent: entity.registeredAgent,
                   agentAddress: entity.agentAddress,
+                  principalAddress: entity.principalAddress,
+                  members: entity.members ?? [],
                   source: entity.source,
                 },
               });
@@ -206,7 +241,12 @@ export class EnrichmentService {
               payload: {
                 originationDate: mtg.originationDate.toISOString(),
                 inferredMaturity: soon.toISOString(),
+                inferredMaturities: maturities.map((m) => m.toISOString()),
                 mortgagee: mtg.mortgagee,
+                mortgagor: mtg.mortgagor,
+                lender: mtg.mortgagee,
+                amount: mtg.amount ?? null,
+                loanAmount: mtg.amount ?? null,
                 book: mtg.book,
                 page: mtg.page,
               },
@@ -262,6 +302,8 @@ export class EnrichmentService {
       if (deed.pin) {
         const parcel = await this.prisma.parcel.findUnique({ where: { pin: deed.pin } });
         if (parcel) {
+          const buyerType = classifyBuyerType(deed.grantee);
+          const salePrice = parcel.salePrice ?? null;
           await this.signals.upsertSignal({
             parcelId: parcel.id,
             type: 'recent_seller',
@@ -271,9 +313,50 @@ export class EnrichmentService {
               recordedAt: deed.recordedAt.toISOString(),
               book: deed.book,
               page: deed.page,
+              buyerType,
+              salePrice,
             },
             expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
           });
+          await this.signals.upsertSignal({
+            parcelId: parcel.id,
+            type: 'deed_comp',
+            payload: {
+              grantor: deed.grantor,
+              grantee: deed.grantee,
+              recordedAt: deed.recordedAt.toISOString(),
+              buyerType,
+              salePrice,
+              fairMarketVal: parcel.fairMarketVal,
+              book: deed.book,
+              page: deed.page,
+            },
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          });
+          const existingComp = await this.prisma.saleComp.findFirst({
+            where: {
+              pin: parcel.pin,
+              recordedAt: deed.recordedAt,
+              ...(deed.book ? { book: deed.book } : {}),
+              ...(deed.page ? { page: deed.page } : {}),
+            },
+          });
+          if (!existingComp) {
+            await this.prisma.saleComp.create({
+              data: {
+                parcelId: parcel.id,
+                pin: parcel.pin,
+                recordedAt: deed.recordedAt,
+                grantor: deed.grantor,
+                grantee: deed.grantee,
+                salePrice,
+                buyerType,
+                book: deed.book ?? null,
+                page: deed.page ?? null,
+                raw: deed as unknown as Prisma.InputJsonValue,
+              },
+            });
+          }
           n += 1;
         }
       }
@@ -385,6 +468,19 @@ export class EnrichmentService {
         payload: hit.payload,
         expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
       });
+      const blob = JSON.stringify(hit.payload ?? {}).toLowerCase();
+      if (/(vacant|vacancy|demo(?:lition)?|tenant improv|ti\b|lease.?up|shell)/i.test(blob)) {
+        await this.signals.upsertSignal({
+          parcelId: parcel.id,
+          type: 'vacancy_proxy',
+          payload: {
+            ...(typeof hit.payload === 'object' && hit.payload ? hit.payload : {}),
+            reason: 'permit_vacancy_keywords',
+            match: 'permit',
+          },
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        });
+      }
       n += 1;
     }
     return n;
@@ -413,6 +509,17 @@ export class EnrichmentService {
             parcelId: exact.id,
             type: 'nearby_listing',
             payload: { ...listing.payload, match: 'pin' },
+            expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+          });
+          // Same-PIN active listing ≈ vacancy / lease-roll proxy for that asset.
+          await this.signals.upsertSignal({
+            parcelId: exact.id,
+            type: 'vacancy_proxy',
+            payload: {
+              ...listing.payload,
+              match: 'pin',
+              reason: 'active_listing_on_parcel',
+            },
             expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
           });
           n += 1;
@@ -511,6 +618,76 @@ export class EnrichmentService {
     return n;
   }
 
+  /** Tag parcels with Greenville submarket from lat/lon boxes. */
+  async assignSubmarkets(): Promise<number> {
+    const parcels = await this.prisma.parcel.findMany({
+      where: {
+        isActive: true,
+        isCommercial: true,
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+      select: { id: true, latitude: true, longitude: true },
+    });
+    let n = 0;
+    for (const p of parcels) {
+      const sub = assignSubmarket(p.latitude, p.longitude);
+      if (!sub) continue;
+      await this.prisma.parcel.update({
+        where: { id: p.id },
+        data: { submarket: sub },
+      });
+      n += 1;
+    }
+    this.logger.log(`Submarkets assigned: ${n}`);
+    return n;
+  }
+
+  /**
+   * Judgment / divorce / public liens — paste or future scraper.
+   * Ethics: only public court index rows the agent lawfully obtained.
+   */
+  async ingestJudgmentLiens(
+    rows: Array<{ name: string; amount?: number; caseNumber?: string; kind?: string }>,
+  ): Promise<number> {
+    let n = 0;
+    for (const row of rows) {
+      const normalized = normalizeOwnerName(row.name);
+      if (normalized.length < 5) continue;
+      const owners = await this.prisma.owner.findMany({
+        where: {
+          OR: [
+            { nameNormalized: normalized },
+            { nameNormalized: { contains: normalized.slice(0, 24) } },
+          ],
+        },
+        include: {
+          parcels: { where: { isActive: true, isCommercial: true }, take: 5 },
+        },
+        take: 3,
+      });
+      for (const owner of owners) {
+        for (const parcel of owner.parcels) {
+          await this.signals.upsertSignal({
+            parcelId: parcel.id,
+            type: 'judgment_lien',
+            payload: {
+              partyName: row.name,
+              amount: row.amount ?? null,
+              caseNumber: row.caseNumber ?? null,
+              kind: row.kind ?? 'judgment',
+              matchedOwner: owner.nameRaw,
+              source: 'paste',
+            },
+            expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          });
+          n += 1;
+        }
+      }
+    }
+    return n;
+  }
+
   async runFullEnrichmentPass(topN = 25): Promise<Record<string, number>> {
     const syncRun = await this.prisma.syncRun.create({
       data: { source: 'enrichment_pass', status: 'running' },
@@ -524,6 +701,7 @@ export class EnrichmentService {
       const listings = await this.refreshListingSignals();
       const probate = await this.refreshProbateSignals();
       const graph = await this.ownerGraph.rebuildClusters();
+      const submarkets = await this.assignSubmarkets();
       const top = await this.enrichTopLeads(topN);
       const flood = await this.refreshFloodForTopLeads(topN);
       const hitl = await this.hitl.refreshQueue(topN);
@@ -537,6 +715,7 @@ export class EnrichmentService {
         listings,
         probate,
         ownerGraph: graph.signals,
+        submarkets,
         sos: top.sos,
         mortgages: top.mortgages,
         skipTrace: top.skipTrace,
@@ -606,4 +785,13 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function classifyBuyerType(grantee: string | null | undefined): string {
+  if (!grantee?.trim()) return 'unknown';
+  const g = grantee.toUpperCase();
+  if (/\b(LLC|INC|LP|LLP|CORP|TRUST|HOLDINGS|PARTNERS)\b/.test(g)) return 'entity';
+  // Crude OOS heuristic — mailing not available on deed row; flag known foreign patterns later.
+  if (/\b(NY|NJ|CA|FL|TX|DE)\b/.test(g)) return 'out_of_state';
+  return 'local_or_unknown';
 }

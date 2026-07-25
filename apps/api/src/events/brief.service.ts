@@ -1,6 +1,12 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  CONFIG_KEYS,
+  DEFAULT_SUBMARKET_BANDS,
+  type SubmarketBand,
+} from '@cre/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppConfigService } from '../app-config/app-config.service';
 import { EmailService } from '../digest/email.service';
 import { MatchingService } from './matching.service';
 import { rankScore } from './matching.util';
@@ -17,6 +23,7 @@ export class BriefService {
     private readonly email: EmailService,
     private readonly config: ConfigService,
     private readonly llm: LlmService,
+    private readonly appConfig: AppConfigService,
   ) {}
 
   async generate(eventId: string, emailAgent = false) {
@@ -50,6 +57,11 @@ export class BriefService {
       },
     });
     if (!event) throw new NotFoundException(`Event ${eventId} not found`);
+
+    const bands = await this.appConfig.getJson<SubmarketBand[]>(
+      CONFIG_KEYS.SUBMARKET_BANDS,
+      DEFAULT_SUBMARKET_BANDS,
+    );
 
     // Ensure matching ran for attendees
     for (const a of event.attendees) {
@@ -123,13 +135,20 @@ export class BriefService {
           landUse: p.propType || p.landUseCode || 'CRE',
           holdYears,
           score: p.scores[0]?.total ?? null,
+          submarket: p.submarket,
         };
       });
       const top = parcels[0];
+      const band = top?.submarket ? bands.find((b) => b.id === top.submarket) : undefined;
+      const marketBandNote =
+        band && band.capRateLow != null && band.capRateHigh != null
+          ? `${band.label} often clears ~${band.capRateLow}–${band.capRateHigh}%`
+          : null;
       let opener = templateOpener({
         personName: a.person.nameRaw,
         parcelAddress: top?.address ?? 'your Greenville property',
         holdYears: top?.holdYears ?? null,
+        marketBandNote,
       });
       if (this.llm.enabled && this.config.get<boolean>('llmOpenerPolish')) {
         try {

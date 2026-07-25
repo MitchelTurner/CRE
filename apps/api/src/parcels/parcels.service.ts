@@ -155,6 +155,9 @@ export class ParcelsService {
       'nearby_listing',
       'probate_estate',
       'tax_sale',
+      'deed_comp',
+      'judgment_lien',
+      'vacancy_proxy',
     ]);
 
     let items = rows.map((r) => {
@@ -244,6 +247,7 @@ export class ParcelsService {
         scores: { orderBy: { scoredAt: 'desc' }, take: 10 },
         signals: { orderBy: { detectedAt: 'desc' } },
         leads: { orderBy: { createdAt: 'desc' }, take: 10 },
+        saleComps: { orderBy: { recordedAt: 'desc' }, take: 12 },
       },
     });
 

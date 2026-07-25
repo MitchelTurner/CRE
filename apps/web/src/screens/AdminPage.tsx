@@ -11,6 +11,9 @@ import {
   syncCrm,
   syncEvents,
   tuneWeights,
+  assignSubmarkets,
+  pasteLiens,
+  pasteBrokers,
 } from '../lib/api';
 import type { DigestPreview, SyncRun } from '../lib/types';
 import { formatDate } from '../lib/format';
@@ -140,6 +143,38 @@ export function AdminPage() {
           className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           {busy === 'Quarterly report' ? 'Enqueueing…' : 'Quarterly report'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => void run('Submarkets', () => assignSubmarkets())}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'Submarkets' ? 'Tagging…' : 'Assign submarkets'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => {
+            const text = window.prompt('Paste liens: Name, amount, case# (one per line)');
+            if (!text) return;
+            void run('Liens paste', () => pasteLiens(text));
+          }}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Paste liens
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => {
+            const text = window.prompt('Paste brokers: Name, Company, Title (one per line)');
+            if (!text) return;
+            void run('Brokers paste', () => pasteBrokers(text));
+          }}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Paste brokers
         </button>
         <button
           type="button"

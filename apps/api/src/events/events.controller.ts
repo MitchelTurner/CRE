@@ -56,4 +56,13 @@ export class EventsController {
   ) {
     return this.events.pasteAttendees(id, text, role ?? 'attendee');
   }
+
+  @Post(':id/attendees/:personId/met')
+  markMet(
+    @Param('id') id: string,
+    @Param('personId') personId: string,
+    @Body('met') met?: boolean,
+  ) {
+    return this.events.markMet(id, personId, met !== false);
+  }
 }

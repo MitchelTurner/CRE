@@ -17,8 +17,8 @@ export interface TuningResult {
 }
 
 /**
- * Nudge score weights from thumbs-down feedback so recurring weak patterns
- * lose influence (land-use / absentee / entity). Conservative ±2 caps.
+ * Nudge score weights from thumbs-down feedback (+ reason hints).
+ * Conservative clamps so one bad week cannot zero a catalyst.
  */
 @Injectable()
 export class FeedbackTuningService {
@@ -54,7 +54,9 @@ export class FeedbackTuningService {
 
     const sums: Record<string, number> = {};
     const counts: Record<string, number> = {};
+    const reasonCounts: Record<string, number> = {};
     for (const f of feedback) {
+      if (f.reason) reasonCounts[f.reason] = (reasonCounts[f.reason] ?? 0) + 1;
       const components = f.lead.parcel.scores[0]?.components as ScoreComponents | undefined;
       if (!components) continue;
       for (const [key, value] of Object.entries(components)) {
@@ -71,7 +73,6 @@ export class FeedbackTuningService {
     const current = mergeScoreWeights(await this.appConfig.getScoreWeights());
     const adjusted: Partial<ScoreWeights> = {};
 
-    // If downvoted leads lean hard on a component, gently reduce its weight.
     if ((avgs.landUsePriority ?? 0) >= 10) {
       adjusted.landUsePriorityMax = clamp(
         current.landUsePriorityMax - 2,
@@ -89,6 +90,34 @@ export class FeedbackTuningService {
     if ((avgs.multiParcel ?? 0) >= 8) {
       adjusted.multiParcel = clamp(current.multiParcel - 1, 0, 10);
     }
+    // Catalyst components that dominate downvotes — soft nudge only.
+    if ((avgs.mortgageMaturity ?? 0) >= 15 && (reasonCounts.bad_timing ?? 0) >= 3) {
+      adjusted.mortgageMaturity = clamp(current.mortgageMaturity - 2, 10, 25);
+    }
+    if ((avgs.zoningWatch ?? 0) >= 10 && (reasonCounts.wrong_asset ?? 0) >= 3) {
+      adjusted.zoningWatch = clamp(current.zoningWatch - 2, 4, 15);
+    }
+    if ((avgs.probateEstate ?? 0) >= 12) {
+      adjusted.probateEstate = clamp(current.probateEstate - 2, 8, 20);
+    }
+    if ((avgs.nearbyListing ?? 0) >= 5 && (reasonCounts.wrong_asset ?? 0) >= 2) {
+      adjusted.nearbyListing = clamp(current.nearbyListing - 1, 2, 10);
+    }
+    if ((avgs.judgmentLien ?? 0) >= 10) {
+      adjusted.judgmentLien = clamp(current.judgmentLien - 2, 4, 15);
+    }
+    if ((avgs.taxSeverity ?? 0) >= 6 && (reasonCounts.bad_timing ?? 0) >= 2) {
+      adjusted.taxSeverityMax = clamp(current.taxSeverityMax - 1, 2, 10);
+    }
+    if ((avgs.loanPressure ?? 0) >= 6 && (reasonCounts.bad_timing ?? 0) >= 2) {
+      adjusted.loanPressureMax = clamp(current.loanPressureMax - 1, 2, 10);
+    }
+    if ((avgs.vacancyProxy ?? 0) >= 5 && (reasonCounts.wrong_asset ?? 0) >= 2) {
+      adjusted.vacancyProxy = clamp(current.vacancyProxy - 1, 2, 10);
+    }
+    if ((avgs.submarketFit ?? 0) >= 3 && (reasonCounts.wrong_asset ?? 0) >= 3) {
+      adjusted.submarketFitMax = clamp(current.submarketFitMax - 1, 0, 6);
+    }
 
     const weights = mergeScoreWeights({ ...current, ...adjusted });
     if (Object.keys(adjusted).length) {
@@ -100,7 +129,9 @@ export class FeedbackTuningService {
         },
         update: { value: weights as unknown as Prisma.InputJsonValue },
       });
-      this.logger.log(`Tuned score weights from ${feedback.length} downvotes: ${JSON.stringify(adjusted)}`);
+      this.logger.log(
+        `Tuned score weights from ${feedback.length} downvotes: ${JSON.stringify(adjusted)} reasons=${JSON.stringify(reasonCounts)}`,
+      );
     }
 
     return { samples: feedback.length, adjusted, weights };

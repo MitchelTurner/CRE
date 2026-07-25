@@ -6,6 +6,8 @@ export const CONFIG_KEYS = {
   FIELD_MAP: 'field_map',
   DIGEST_FMV_FLOOR: 'digest_fmv_floor',
   COUNTY_SLUG: 'county_slug',
+  SUBMARKET_BANDS: 'submarket_bands',
+  PRIORITY_SUBMARKETS: 'priority_submarkets',
 } as const;
 
 export type ConfigKey = (typeof CONFIG_KEYS)[keyof typeof CONFIG_KEYS];

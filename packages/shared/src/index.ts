@@ -5,3 +5,4 @@ export * from './config-keys';
 export * from './types';
 export * from './counties';
 export * from './outreach';
+export * from './submarkets';

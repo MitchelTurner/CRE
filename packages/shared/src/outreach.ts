@@ -9,6 +9,10 @@ export interface OutreachDraftInput {
   contactEmail?: string | null;
   agentName?: string;
   countyName?: string;
+  /** Submarket id (e.g. downtown) — optional market-band line in drafts. */
+  submarket?: string | null;
+  /** e.g. "Downtown typically clears ~5.5–7.5% cap" */
+  marketBandNote?: string | null;
 }
 
 export interface OutreachDrafts {
@@ -23,14 +27,18 @@ export function buildOutreachDrafts(input: OutreachDraftInput): OutreachDrafts {
   const contact = input.contactName || input.ownerName;
   const asset = input.propType ? input.propType.toLowerCase() : 'commercial';
   const address = input.situsAddress || `PIN ${input.pin}`;
+  const band = input.marketBandNote?.trim();
 
   const callScript = [
     `Hi ${firstName(contact)} — this is ${agent} in ${county}.`,
     `I'm reaching out about your ${asset} property at ${address}.`,
     `${input.whyNow}`,
+    band ? `For context, ${band}.` : null,
     `Curious if you've thought about a sale or 1031 exchange in the next 6–12 months, or if you'd like a quiet off-market read on value?`,
     `Happy to keep it confidential — no listing obligation.`,
-  ].join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const emailSubject = `${county} CRE — quick question on ${address}`;
   const emailBody = [
@@ -39,6 +47,8 @@ export function buildOutreachDrafts(input: OutreachDraftInput): OutreachDrafts {
     `I work investment sales in ${county} County and came across your ${asset} property at ${address} (PIN ${input.pin}).`,
     ``,
     input.whyNow,
+    band ? `` : null,
+    band ? band : null,
     ``,
     `If a sale, refinance, or 1031 replacement is even vaguely on the radar, I'd welcome a short conversation — completely confidential.`,
     ``,
@@ -47,7 +57,7 @@ export function buildOutreachDrafts(input: OutreachDraftInput): OutreachDrafts {
     input.contactPhone ? `P: ${input.contactPhone}` : '',
     input.contactEmail ? `E: ${input.contactEmail}` : '',
   ]
-    .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
+    .filter((line, i, arr) => line !== null && !(line === '' && arr[i - 1] === ''))
     .join('\n')
     .trim();
 

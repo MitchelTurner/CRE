@@ -11,7 +11,7 @@ import {
 } from '../lib/api';
 import type { LeadOutcome, OutreachDrafts, ParcelDetail } from '../lib/types';
 import { formatDate, formatMoney, yearsHeld } from '../lib/format';
-import { OUTCOMES, SIGNAL_LABELS } from '../lib/signals';
+import { OUTCOMES, SIGNAL_LABELS, formatSignalPayload } from '../lib/signals';
 import { ScoreBar } from '../components/ScoreBar';
 import { StatusSelect } from '../components/StatusSelect';
 import { CopyButton } from '../components/CopyButton';
@@ -178,20 +178,57 @@ export function ParcelDetailPage() {
             <Fact label="SoS status" value={parcel.owner?.sosStatus || '—'} />
             <Fact label="Registered agent" value={parcel.owner?.sosRegisteredAgent || '—'} />
             <Fact label="Flood zone" value={parcel.floodZone || '—'} />
+            <Fact label="Submarket" value={parcel.submarket || '—'} />
+            <Fact
+              label="Portfolio"
+              value={
+                parcel.owner?.portfolioScore != null
+                  ? `score ${parcel.owner.portfolioScore}`
+                  : Array.isArray(parcel.owner?.relatedOwnerIds)
+                    ? `${(parcel.owner.relatedOwnerIds as string[]).length} related owners`
+                    : '—'
+              }
+            />
           </dl>
+
+          {parcel.saleComps?.length ? (
+            <div className="border-pine/50 mt-10 border-t pt-6">
+              <h3 className="font-display text-xl font-bold text-white">Sale comps</h3>
+              <ul className="mt-3 space-y-2">
+                {parcel.saleComps.map((c) => (
+                  <li key={c.id} className="text-sm text-mist">
+                    <span className="text-white">{formatDate(c.recordedAt)}</span>
+                    <span className="text-fog ml-2">
+                      {c.grantor || '—'} → {c.grantee || '—'}
+                    </span>
+                    {c.salePrice != null ? (
+                      <span className="text-moss ml-2">{formatMoney(c.salePrice)}</span>
+                    ) : null}
+                    {c.buyerType ? (
+                      <span className="text-fog ml-2 text-xs">{c.buyerType}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {parcel.signals.length ? (
             <div className="border-pine/50 mt-10 border-t pt-6">
               <h3 className="font-display text-xl font-bold text-white">Signals</h3>
               <ul className="mt-3 space-y-2">
-                {parcel.signals.map((s) => (
-                  <li key={s.id} className="text-sm text-mist">
-                    <span className="text-moss font-semibold">
-                      {SIGNAL_LABELS[s.type] || s.type}
-                    </span>
-                    <span className="text-fog ml-2 text-xs">{formatDate(s.detectedAt)}</span>
-                  </li>
-                ))}
+                {parcel.signals.map((s) => {
+                  const detail = formatSignalPayload(s.type, s.payload);
+                  return (
+                    <li key={s.id} className="text-sm text-mist">
+                      <span className="text-moss font-semibold">
+                        {SIGNAL_LABELS[s.type] || s.type}
+                      </span>
+                      <span className="text-fog ml-2 text-xs">{formatDate(s.detectedAt)}</span>
+                      {detail ? <p className="text-fog mt-0.5 text-xs">{detail}</p> : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}
@@ -203,6 +240,7 @@ export function ParcelDetailPage() {
                 {contacts.map((c) => (
                   <li key={c.id} className="text-sm text-mist">
                     <span className="font-semibold text-white">{c.name || 'Unknown'}</span>
+                    {c.role ? <span className="text-fog ml-2 text-xs">{c.role}</span> : null}
                     {c.phone ? (
                       <a href={`tel:${c.phone}`} className="text-moss ml-2">
                         {c.phone}
@@ -314,14 +352,27 @@ export function ParcelDetailPage() {
                     ['Multi-parcel', components.multiParcel],
                     ['Land use', components.landUsePriority],
                     ['Tax delinquent', components.taxDelinquent ?? 0],
+                    ['Tax severity', components.taxSeverity ?? 0],
                     ['Mortgage maturity', components.mortgageMaturity ?? 0],
+                    ['Loan pressure', components.loanPressure ?? 0],
                     ['Foreclosure', components.foreclosure ?? 0],
+                    ['Recent seller', components.recentSeller ?? 0],
                     ['SoS boost', components.sosBoost ?? 0],
                     ['FMV boost', components.fmvBoost ?? 0],
                     ['OOS decay', components.oosDecay ?? 0],
                     ['Portfolio cluster', components.portfolioCluster ?? 0],
+                    ['Zoning', components.zoningWatch ?? 0],
+                    ['Permits', components.permitActivity ?? 0],
+                    ['Nearby listing', components.nearbyListing ?? 0],
+                    ['Vacancy', components.vacancyProxy ?? 0],
+                    ['Judgment lien', components.judgmentLien ?? 0],
+                    ['Probate', components.probateEstate ?? 0],
+                    ['Flood', components.floodRisk ?? 0],
+                    ['Submarket', components.submarketFit ?? 0],
                   ] as const
-                ).map(([label, pts]) => (
+                )
+                  .filter(([, pts]) => pts > 0)
+                  .map(([label, pts]) => (
                   <li key={label} className="flex justify-between border-b border-white/5 py-2">
                     <span className="text-fog">{label}</span>
                     <span className="font-semibold text-white">+{pts}</span>

@@ -40,7 +40,9 @@ export interface ScoreComponents {
   multiParcel: number;
   landUsePriority: number;
   taxDelinquent?: number;
+  taxSeverity?: number;
   mortgageMaturity?: number;
+  loanPressure?: number;
   foreclosure?: number;
   recentSeller?: number;
   sosBoost?: number;
@@ -50,8 +52,11 @@ export interface ScoreComponents {
   zoningWatch?: number;
   permitActivity?: number;
   nearbyListing?: number;
+  vacancyProxy?: number;
+  judgmentLien?: number;
   probateEstate?: number;
   floodRisk?: number;
+  submarketFit?: number;
   missingDeedDate?: boolean;
 }
 
@@ -71,6 +76,8 @@ export interface ParcelDetail {
   latitude: number | null;
   longitude: number | null;
   floodZone: string | null;
+  submarket?: string | null;
+  countySlug?: string | null;
   isCommercial: boolean;
   isActive: boolean;
   owner: {
@@ -117,6 +124,16 @@ export interface ParcelDetail {
     payload: unknown;
     detectedAt: string;
     expiresAt?: string | null;
+  }>;
+  saleComps?: Array<{
+    id: string;
+    recordedAt: string;
+    grantor?: string | null;
+    grantee?: string | null;
+    salePrice?: number | null;
+    buyerType?: string | null;
+    book?: string | null;
+    page?: string | null;
   }>;
   leads: Array<{
     id: string;
@@ -259,6 +276,19 @@ export interface TodayDashboard {
   }>;
 }
 
+export interface EventAttendeeRow {
+  id: string;
+  personId: string;
+  role: string;
+  metAt?: string | null;
+  person: {
+    id: string;
+    nameRaw: string;
+    company?: string | null;
+    title?: string | null;
+  };
+}
+
 export interface EventRow {
   id: string;
   name: string;
@@ -273,4 +303,6 @@ export interface EventRow {
   ownerDensity?: string | null;
   audience?: string | null;
   status: string;
+  _count?: { attendees: number; briefs: number };
+  attendees?: EventAttendeeRow[];
 }

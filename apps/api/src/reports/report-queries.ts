@@ -44,4 +44,23 @@ export const REPORT_QUERIES = {
     LEFT JOIN "Owner" o ON o.id = p."ownerId"
     WHERE p."isActive" = true AND p."isCommercial" = true
   `,
+  bySubmarket: `
+    SELECT COALESCE(p.submarket, 'untagged') AS bucket,
+           COUNT(*)::int AS parcel_count
+    FROM "Parcel" p
+    WHERE p."isActive" = true AND p."isCommercial" = true
+    GROUP BY 1
+    ORDER BY parcel_count DESC
+    LIMIT 20
+  `,
+  saleComps: `
+    SELECT
+      COUNT(*)::int AS comp_count,
+      COUNT(*) FILTER (WHERE "salePrice" IS NOT NULL)::int AS priced_count,
+      COALESCE(AVG("salePrice") FILTER (WHERE "salePrice" IS NOT NULL), 0)::float AS avg_price,
+      COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "salePrice")
+        FILTER (WHERE "salePrice" IS NOT NULL), 0)::float AS median_price
+    FROM "SaleComp"
+    WHERE "recordedAt" >= $1 AND "recordedAt" <= $2
+  `,
 } as const;

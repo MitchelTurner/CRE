@@ -8,8 +8,11 @@ const LABELS: Array<[keyof ScoreComponents | string, string]> = [
   ['multiParcel', 'Multi-parcel'],
   ['landUsePriority', 'Land use'],
   ['taxDelinquent', 'Tax delinquent'],
+  ['taxSeverity', 'Tax severity'],
   ['mortgageMaturity', 'Mortgage maturity'],
+  ['loanPressure', 'Loan pressure'],
   ['foreclosure', 'Foreclosure'],
+  ['recentSeller', 'Recent seller / comp'],
   ['sosBoost', 'SoS'],
   ['fmvBoost', 'FMV'],
   ['oosDecay', 'OOS decay'],
@@ -17,8 +20,11 @@ const LABELS: Array<[keyof ScoreComponents | string, string]> = [
   ['zoningWatch', 'Zoning'],
   ['permitActivity', 'Permits'],
   ['nearbyListing', 'Nearby listing'],
+  ['vacancyProxy', 'Vacancy'],
+  ['judgmentLien', 'Judgment lien'],
   ['probateEstate', 'Probate'],
   ['floodRisk', 'Flood'],
+  ['submarketFit', 'Submarket'],
 ];
 
 export function ScoreExplain({

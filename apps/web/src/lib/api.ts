@@ -294,6 +294,13 @@ export function pasteEventAttendees(id: string, text: string, role = 'attendee')
   });
 }
 
+export function markEventAttendeeMet(eventId: string, personId: string, met = true) {
+  return request<{ id: string; metAt: string | null }>(
+    `/events/${encodeURIComponent(eventId)}/attendees/${encodeURIComponent(personId)}/met`,
+    { method: 'POST', body: JSON.stringify({ met }) },
+  );
+}
+
 export function generateEventBrief(id: string, email = false) {
   return request<{ id: string; htmlBody: string; matchCount: number }>(
     `/events/${encodeURIComponent(id)}/brief`,
@@ -335,6 +342,26 @@ export async function downloadInviteList(body: {
 export function enqueueQuarterlyReport() {
   return request<{ enqueued: boolean; note?: string }>('/admin/reports/quarterly', {
     method: 'POST',
+  });
+}
+
+export function assignSubmarkets() {
+  return request<{ assigned: number; note?: string }>('/admin/submarkets/assign', {
+    method: 'POST',
+  });
+}
+
+export function pasteLiens(text: string) {
+  return request<{ parsed: number; signalsCreated: number }>('/admin/liens/paste', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+
+export function pasteBrokers(text: string) {
+  return request<{ upserted: number; note?: string }>('/admin/brokers/paste', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
   });
 }
 

@@ -185,6 +185,9 @@ export class ParcelsSyncService implements OnModuleInit {
           },
         });
 
+        const countySlug =
+          this.config.get<string>('countySlug')?.trim().toLowerCase() || 'greenville';
+
         await this.prisma.parcel.upsert({
           where: { pin: mapped.pin },
           create: {
@@ -201,6 +204,7 @@ export class ParcelsSyncService implements OnModuleInit {
             paidDate: mapped.paidDate,
             latitude: mapped.latitude,
             longitude: mapped.longitude,
+            countySlug,
             rawAttributes: mapped.rawAttributes as Prisma.InputJsonValue,
             isCommercial: mapped.isCommercial,
             isActive: true,
@@ -219,6 +223,7 @@ export class ParcelsSyncService implements OnModuleInit {
             paidDate: mapped.paidDate,
             latitude: mapped.latitude,
             longitude: mapped.longitude,
+            countySlug,
             rawAttributes: mapped.rawAttributes as Prisma.InputJsonValue,
             isCommercial: mapped.isCommercial,
             isActive: true,

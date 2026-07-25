@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   CONFIG_KEYS,
   DEFAULT_DIGEST_FMV_FLOOR,
+  DEFAULT_SUBMARKET_BANDS,
   mergeScoreWeights,
   type FieldMap,
   type ScoreWeights,
@@ -37,6 +38,8 @@ export class AppConfigService implements OnModuleInit {
       [CONFIG_KEYS.FIELD_MAP]: this.config.get('defaults.fieldMap'),
       [CONFIG_KEYS.DIGEST_FMV_FLOOR]:
         this.config.get('defaults.digestFmvFloor') ?? DEFAULT_DIGEST_FMV_FLOOR,
+      [CONFIG_KEYS.SUBMARKET_BANDS]: DEFAULT_SUBMARKET_BANDS,
+      [CONFIG_KEYS.PRIORITY_SUBMARKETS]: ['downtown', 'woodruff', 'airport', 'pelham'],
     };
 
     for (const [key, value] of Object.entries(defaults)) {

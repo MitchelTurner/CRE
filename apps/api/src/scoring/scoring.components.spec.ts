@@ -125,11 +125,22 @@ describe('v2/v3 signal / tax / fmv components', () => {
   });
 
   it('maps signal types to points', () => {
-    const pts = scoreSignals(['foreclosure', 'mortgage_maturity', 'sos_dissolved', 'zoning_change']);
+    const pts = scoreSignals([
+      'foreclosure',
+      'mortgage_maturity',
+      'sos_dissolved',
+      'zoning_change',
+      'judgment_lien',
+      'vacancy_proxy',
+      'deed_comp',
+    ]);
     expect(pts.foreclosure).toBe(25);
     expect(pts.mortgageMaturity).toBe(20);
     expect(pts.sosBoost).toBe(10);
     expect(pts.zoningWatch).toBe(12);
+    expect(pts.judgmentLien).toBe(12);
+    expect(pts.vacancyProxy).toBe(7);
+    expect(pts.recentSeller).toBe(8);
   });
 
   it('scores OOS decay for long-hold out-of-state absentees', () => {

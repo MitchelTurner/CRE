@@ -75,10 +75,29 @@ export class OpenSosDataClient implements SosClient {
           : undefined,
       principalAddress: data.principal_address ? String(data.principal_address) : undefined,
       formedAt: data.formation_date ? String(data.formation_date) : undefined,
+      members: extractMembers(data),
       raw: data,
       source: 'opensosdata',
     };
   }
+}
+
+/** Pull officers/managers/members from heterogeneous SoS JSON shapes. */
+export function extractMembers(data: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const push = (v: unknown) => {
+    if (typeof v === 'string' && v.trim()) out.push(v.trim());
+    else if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      const name = o.name ?? o.full_name ?? o.member_name ?? o.officer_name;
+      if (typeof name === 'string' && name.trim()) out.push(name.trim());
+    }
+  };
+  for (const key of ['members', 'officers', 'managers', 'principals', 'directors']) {
+    const val = data[key];
+    if (Array.isArray(val)) val.forEach(push);
+  }
+  return [...new Set(out)].slice(0, 20);
 }
 
 export function isDissolvedStatus(status: string | null | undefined): boolean {

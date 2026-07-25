@@ -25,6 +25,9 @@ const KNOWN_SIGNAL_TYPES = new Set<SignalType>([
   'flood_zone',
   'related_entity',
   'tax_sale',
+  'deed_comp',
+  'judgment_lien',
+  'vacancy_proxy',
 ]);
 
 @Injectable()
@@ -84,10 +87,15 @@ export class ScoringService {
             where: {
               OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
             },
-            select: { type: true },
+            select: { type: true, payload: true },
           },
         },
       });
+
+      const prioritySubmarkets = await this.appConfig.getJson<string[]>(
+        'priority_submarkets',
+        ['downtown', 'woodruff', 'airport', 'pelham'],
+      );
 
       let scored = 0;
       for (const parcel of parcels) {
@@ -106,6 +114,11 @@ export class ScoringService {
           ),
         ];
 
+        const mtgPayload = parcel.signals.find((s) => s.type === 'mortgage_maturity')
+          ?.payload as { loanAmount?: number; amount?: number } | null;
+        const taxPayload = parcel.signals.find((s) => s.type === 'tax_delinquent')
+          ?.payload as { yearsDelinquent?: number; totalTax?: number } | null;
+
         const { total, components } = scoreParcel({
           deedDate: parcel.deedDate,
           mailingStreet,
@@ -117,8 +130,12 @@ export class ScoringService {
           landUseCode: parcel.landUseCode,
           landUsePriorityMap: landUsePriority,
           paidDate: parcel.paidDate,
-          totalTax: parcel.totalTax,
+          totalTax: taxPayload?.totalTax ?? parcel.totalTax,
           fairMarketVal: parcel.fairMarketVal,
+          loanAmount: mtgPayload?.loanAmount ?? mtgPayload?.amount ?? null,
+          yearsDelinquent: taxPayload?.yearsDelinquent ?? null,
+          submarket: parcel.submarket,
+          prioritySubmarkets,
           signalTypes,
           homeState,
           weights,

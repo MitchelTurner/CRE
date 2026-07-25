@@ -2,7 +2,9 @@ import { clearToken, getToken } from './auth';
 import type {
   DigestPreview,
   FeedbackRating,
+  FeedbackReason,
   HitlReview,
+  LeadOutcome,
   LeadRow,
   LeadStatus,
   MapPoint,
@@ -10,6 +12,7 @@ import type {
   ParcelDetail,
   ParcelListItem,
   SyncRun,
+  TodayDashboard,
 } from './types';
 
 export class ApiError extends Error {
@@ -63,8 +66,14 @@ export interface ParcelListQuery {
   minScore?: number;
   landUse?: string;
   absentee?: boolean;
+  hotOnly?: boolean;
+  missingContact?: boolean;
   limit?: number;
   offset?: number;
+}
+
+export function getTodayDashboard() {
+  return request<TodayDashboard>('/dashboard/today');
 }
 
 export function listParcels(query: ParcelListQuery = {}) {
@@ -72,6 +81,8 @@ export function listParcels(query: ParcelListQuery = {}) {
   if (query.minScore !== undefined) params.set('minScore', String(query.minScore));
   if (query.landUse) params.set('landUse', query.landUse);
   if (query.absentee !== undefined) params.set('absentee', String(query.absentee));
+  if (query.hotOnly) params.set('hotOnly', 'true');
+  if (query.missingContact) params.set('missingContact', 'true');
   if (query.limit !== undefined) params.set('limit', String(query.limit));
   if (query.offset !== undefined) params.set('offset', String(query.offset));
   params.set('sort', 'score');
@@ -100,9 +111,12 @@ export function getParcelOutreach(pin: string) {
   return request<OutreachDrafts>(`/parcels/${encodeURIComponent(pin)}/outreach`);
 }
 
-export function listLeads(status?: LeadStatus) {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
-  return request<{ items: LeadRow[] }>(`/leads${qs}`);
+export function listLeads(status?: LeadStatus, includeSnoozed = false) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (includeSnoozed) params.set('includeSnoozed', 'true');
+  const qs = params.toString();
+  return request<{ items: LeadRow[] }>(`/leads${qs ? `?${qs}` : ''}`);
 }
 
 export function createLead(parcelId: string, whyNow?: string) {
@@ -119,11 +133,36 @@ export function updateLeadStatus(id: string, status: LeadStatus) {
   });
 }
 
-export function submitLeadFeedback(id: string, rating: FeedbackRating, note?: string) {
+export function logLeadOutcome(id: string, outcome: LeadOutcome) {
+  return request<LeadRow>(`/leads/${encodeURIComponent(id)}/outcome`, {
+    method: 'POST',
+    body: JSON.stringify({ outcome }),
+  });
+}
+
+export function snoozeLead(id: string, days: 30 | 90) {
+  return request<LeadRow>(`/leads/${encodeURIComponent(id)}/snooze`, {
+    method: 'POST',
+    body: JSON.stringify({ days }),
+  });
+}
+
+export function submitLeadFeedback(
+  id: string,
+  rating: FeedbackRating,
+  note?: string,
+  reason?: FeedbackReason,
+) {
   return request<LeadRow>(`/leads/${encodeURIComponent(id)}/feedback`, {
     method: 'POST',
-    body: JSON.stringify({ rating, note }),
+    body: JSON.stringify({ rating, note, reason }),
   });
+}
+
+export function getLeadNeighbors(id: string) {
+  return request<{ prevPin: string | null; nextPin: string | null; index: number; total: number }>(
+    `/leads/${encodeURIComponent(id)}/neighbors`,
+  );
 }
 
 export function enqueueSync() {
@@ -174,12 +213,22 @@ export function listSyncRuns() {
   return request<SyncRun[]>('/admin/sync-runs?limit=20');
 }
 
-export function previewDigest() {
-  return request<DigestPreview>('/admin/digest/preview', { method: 'POST' });
+export function listActiveJobs() {
+  return request<{ items: SyncRun[] }>('/admin/jobs/active');
 }
 
-export function sendDigest() {
-  return request<{ enqueued: boolean; jobId: string }>('/admin/digest/send', { method: 'POST' });
+export function previewDigest(excludePins: string[] = []) {
+  return request<DigestPreview>('/admin/digest/preview', {
+    method: 'POST',
+    body: JSON.stringify({ excludePins }),
+  });
+}
+
+export function sendDigest(excludePins: string[] = []) {
+  return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/digest/send', {
+    method: 'POST',
+    body: JSON.stringify({ excludePins }),
+  });
 }
 
 export async function verifyToken(): Promise<boolean> {

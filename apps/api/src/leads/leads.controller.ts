@@ -12,8 +12,11 @@ export class LeadsController {
   ) {}
 
   @Get()
-  list(@Query('status') status?: string) {
-    return this.leads.list(status);
+  list(
+    @Query('status') status?: string,
+    @Query('includeSnoozed') includeSnoozed?: string,
+  ) {
+    return this.leads.list(status, includeSnoozed === 'true');
   }
 
   @Post()
@@ -26,17 +29,33 @@ export class LeadsController {
     return this.leads.updateStatus(id, status);
   }
 
+  @Post(':id/outcome')
+  outcome(@Param('id') id: string, @Body('outcome') outcome: string) {
+    return this.leads.logOutcome(id, outcome);
+  }
+
+  @Post(':id/snooze')
+  snooze(@Param('id') id: string, @Body('days') days: number) {
+    return this.leads.snooze(id, days);
+  }
+
   @Post(':id/feedback')
   feedback(
     @Param('id') id: string,
     @Body('rating') rating: string,
     @Body('note') note?: string,
+    @Body('reason') reason?: string,
   ) {
-    return this.leads.addFeedback(id, rating, note);
+    return this.leads.addFeedback(id, rating, note, reason);
   }
 
   @Get(':id/outreach')
   outreachDrafts(@Param('id') id: string) {
     return this.outreach.draftsForLead(id);
+  }
+
+  @Get(':id/neighbors')
+  neighbors(@Param('id') id: string) {
+    return this.leads.neighbors(id);
   }
 }

@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listLeads, submitLeadFeedback, updateLeadStatus } from '../lib/api';
-import type { FeedbackRating, LeadRow, LeadStatus } from '../lib/types';
+import {
+  listLeads,
+  logLeadOutcome,
+  snoozeLead,
+  submitLeadFeedback,
+  updateLeadStatus,
+} from '../lib/api';
+import type { FeedbackReason, LeadOutcome, LeadRow, LeadStatus } from '../lib/types';
 import { STATUS_LABELS } from '../lib/format';
+import { FEEDBACK_REASONS, OUTCOMES, shortWhyNow } from '../lib/signals';
 import { StatusSelect } from '../components/StatusSelect';
 import { ScoreBar } from '../components/ScoreBar';
+import { SignalChips } from '../components/SignalChips';
+import { EmptyState } from '../components/EmptyState';
+import { useToast } from '../state/toast';
 
 const FILTERS: Array<LeadStatus | 'all'> = ['all', 'new', 'sent', 'contacted', 'dead', 'deal'];
 
@@ -13,6 +23,8 @@ export function PipelinePage() {
   const [items, setItems] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reasonFor, setReasonFor] = useState<string | null>(null);
+  const { push } = useToast();
 
   async function reload(status: LeadStatus | 'all') {
     setLoading(true);
@@ -31,22 +43,12 @@ export function PipelinePage() {
     void reload(filter);
   }, [filter]);
 
-  async function onStatus(id: string, status: LeadStatus) {
-    await updateLeadStatus(id, status);
-    await reload(filter);
-  }
-
-  async function onFeedback(id: string, rating: FeedbackRating) {
-    await submitLeadFeedback(id, rating);
-    await reload(filter);
-  }
-
   return (
     <div className="animate-fade">
       <div className="mb-8">
         <h2 className="font-display text-3xl font-bold tracking-tight text-white">Pipeline</h2>
         <p className="text-fog mt-1 max-w-xl text-sm">
-          Leads from digests and parcels you promoted. Thumb feedback tunes digest quality over time.
+          Log outcomes in one tap. Snooze noise. Thumbs-down asks why so scoring can learn.
         </p>
       </div>
 
@@ -69,75 +71,160 @@ export function PipelinePage() {
       {error ? <p className="text-danger mb-4 text-sm">{error}</p> : null}
       {loading ? <p className="text-fog text-sm">Loading…</p> : null}
 
-      <ul className="divide-pine/40 divide-y">
-        {items.map((lead) => {
-          const score = lead.parcel.scores[0]?.total ?? null;
-          const latestFeedback = lead.feedback?.[0]?.rating;
-          return (
-            <li
-              key={lead.id}
-              className="flex flex-col gap-4 py-5 md:flex-row md:items-center md:justify-between"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <Link
-                    to={`/parcels/${encodeURIComponent(lead.parcel.pin)}`}
-                    className="font-display text-xl font-bold text-white hover:text-moss"
-                  >
-                    {lead.parcel.situsAddress || lead.parcel.pin}
-                  </Link>
-                  {lead.leadType && lead.leadType !== 'seller' ? (
-                    <span className="text-brass text-xs tracking-wide uppercase">
-                      {lead.leadType.replace('_', ' ')}
-                    </span>
-                  ) : null}
+      {!loading && items.length === 0 ? (
+        <EmptyState
+          title="No leads yet"
+          body="Promote a parcel or send a weekly digest to fill the pipeline."
+          actionTo="/parcels"
+          actionLabel="Browse parcels"
+        />
+      ) : (
+        <ul className="divide-pine/40 divide-y">
+          {items.map((lead) => {
+            const score = lead.parcel.scores[0]?.total ?? null;
+            const phone = lead.parcel.owner?.contacts?.[0]?.phone;
+            const email = lead.parcel.owner?.contacts?.[0]?.email;
+            const latestFeedback = lead.feedback?.[0];
+            return (
+              <li key={lead.id} className="py-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-mist/90">{shortWhyNow(lead.whyNow, 180)}</p>
+                    <SignalChips types={lead.signalTypes} />
+                    <Link
+                      to={`/parcels/${encodeURIComponent(lead.parcel.pin)}`}
+                      className="font-display mt-2 block text-xl font-bold text-white hover:text-moss"
+                    >
+                      {lead.parcel.situsAddress || lead.parcel.pin}
+                    </Link>
+                    <p className="text-fog mt-1 text-sm">
+                      {lead.parcel.owner?.nameRaw || 'Unknown owner'}
+                      {lead.lastOutcome ? ` · last: ${lead.lastOutcome.replace('_', ' ')}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <ScoreBar score={score} />
+                    {phone ? (
+                      <a href={`tel:${phone}`} className="bg-moss text-ink px-3 py-1.5 text-sm font-semibold">
+                        Call
+                      </a>
+                    ) : null}
+                    {email ? (
+                      <a
+                        href={`mailto:${email}`}
+                        className="border-pine-soft text-mist border px-3 py-1.5 text-sm font-semibold"
+                      >
+                        Email
+                      </a>
+                    ) : null}
+                    <StatusSelect
+                      value={lead.status}
+                      onChange={(status) =>
+                        void updateLeadStatus(lead.id, status).then(() => reload(filter))
+                      }
+                    />
+                  </div>
                 </div>
-                <p className="text-fog mt-1 text-sm">
-                  {lead.parcel.owner?.nameRaw || 'Unknown owner'}
-                  {lead.parcel.propType ? ` · ${lead.parcel.propType}` : ''}
-                </p>
-                <p className="mt-2 text-sm text-mist/90">{lead.whyNow}</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-4">
-                <ScoreBar score={score} />
-                <div className="flex items-center gap-1">
+
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {OUTCOMES.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      className="border-pine-soft/60 text-fog hover:border-moss hover:text-moss border px-2 py-1 text-xs font-semibold"
+                      onClick={() =>
+                        void logLeadOutcome(lead.id, o.id as LeadOutcome)
+                          .then(() => {
+                            push(`Logged ${o.label}`, 'success');
+                            return reload(filter);
+                          })
+                          .catch((err: unknown) =>
+                            push(err instanceof Error ? err.message : 'Outcome failed', 'danger'),
+                          )
+                      }
+                    >
+                      {o.label}
+                    </button>
+                  ))}
                   <button
                     type="button"
-                    title="Good lead"
-                    onClick={() => void onFeedback(lead.id, 'up')}
+                    className="border-pine-soft/60 text-fog hover:text-mist border px-2 py-1 text-xs"
+                    onClick={() =>
+                      void snoozeLead(lead.id, 30).then(() => {
+                        push('Snoozed 30 days', 'info');
+                        return reload(filter);
+                      })
+                    }
+                  >
+                    Snooze 30d
+                  </button>
+                  <button
+                    type="button"
+                    className="border-pine-soft/60 text-fog hover:text-mist border px-2 py-1 text-xs"
+                    onClick={() =>
+                      void snoozeLead(lead.id, 90).then(() => {
+                        push('Snoozed 90 days', 'info');
+                        return reload(filter);
+                      })
+                    }
+                  >
+                    Snooze 90d
+                  </button>
+                  <button
+                    type="button"
                     className={[
-                      'px-2 py-1 text-sm font-semibold',
-                      latestFeedback === 'up' ? 'text-moss' : 'text-fog hover:text-moss',
+                      'px-2 py-1 text-xs font-semibold',
+                      latestFeedback?.rating === 'up' ? 'text-moss' : 'text-fog hover:text-moss',
                     ].join(' ')}
+                    onClick={() =>
+                      void submitLeadFeedback(lead.id, 'up').then(() => reload(filter))
+                    }
                   >
                     ▲
                   </button>
                   <button
                     type="button"
-                    title="Weak lead"
-                    onClick={() => void onFeedback(lead.id, 'down')}
                     className={[
-                      'px-2 py-1 text-sm font-semibold',
-                      latestFeedback === 'down' ? 'text-danger' : 'text-fog hover:text-danger',
+                      'px-2 py-1 text-xs font-semibold',
+                      latestFeedback?.rating === 'down' ? 'text-danger' : 'text-fog hover:text-danger',
                     ].join(' ')}
+                    onClick={() => setReasonFor(lead.id)}
                   >
                     ▼
                   </button>
                 </div>
-                <StatusSelect
-                  value={lead.status}
-                  onChange={(status) => void onStatus(lead.id, status)}
-                />
-              </div>
-            </li>
-          );
-        })}
-        {!loading && items.length === 0 ? (
-          <li className="text-fog py-12 text-center text-sm">
-            No leads yet. Promote a parcel or send a weekly digest.
-          </li>
-        ) : null}
-      </ul>
+
+                {reasonFor === lead.id ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="text-fog self-center text-xs">Why weak?</span>
+                    {FEEDBACK_REASONS.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className="border-danger/40 text-danger border px-2 py-1 text-xs font-semibold"
+                        onClick={() =>
+                          void submitLeadFeedback(
+                            lead.id,
+                            'down',
+                            undefined,
+                            r.id as FeedbackReason,
+                          ).then(() => {
+                            setReasonFor(null);
+                            push(`Noted: ${r.label}`, 'info');
+                            return reload(filter);
+                          })
+                        }
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

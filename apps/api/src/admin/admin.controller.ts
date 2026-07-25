@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ApiTokenGuard } from '../auth/api-token.guard';
@@ -82,16 +82,26 @@ export class AdminController {
     });
   }
 
+  @Get('jobs/active')
+  async activeJobs() {
+    const running = await this.prisma.syncRun.findMany({
+      where: { status: 'running' },
+      orderBy: { startedAt: 'desc' },
+      take: 10,
+    });
+    return { items: running };
+  }
+
   @Post('digest/preview')
-  previewDigest() {
-    return this.digest.preview(false);
+  previewDigest(@Body() body?: { excludePins?: string[] }) {
+    return this.digest.preview(false, { excludePins: body?.excludePins });
   }
 
   @Post('digest/send')
-  async sendDigest() {
+  async sendDigest(@Body() body?: { excludePins?: string[] }) {
     const job = await this.digestQueue.add(
       JOBS.DIGEST_WEEKLY,
-      { reason: 'manual' },
+      { reason: 'manual', excludePins: body?.excludePins ?? [] },
       {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
@@ -99,6 +109,12 @@ export class AdminController {
         removeOnFail: 50,
       },
     );
-    return { enqueued: true, jobId: job.id, jobName: JOBS.DIGEST_WEEKLY };
+    return {
+      enqueued: true,
+      jobId: job.id,
+      jobName: JOBS.DIGEST_WEEKLY,
+      excluded: body?.excludePins?.length ?? 0,
+      note: 'Digest queued with your include/exclude selection.',
+    };
   }
 }

@@ -1,5 +1,12 @@
 export type LeadStatus = 'new' | 'sent' | 'contacted' | 'dead' | 'deal';
 export type FeedbackRating = 'up' | 'down';
+export type FeedbackReason = 'wrong_asset' | 'wrong_owner' | 'bad_timing' | 'other';
+export type LeadOutcome =
+  | 'connected'
+  | 'voicemail'
+  | 'wrong_number'
+  | 'not_seller'
+  | 'callback';
 
 export interface ParcelListItem {
   id: string;
@@ -13,6 +20,10 @@ export interface ParcelListItem {
   score: number | null;
   scoredAt: string | null;
   components: ScoreComponents | null;
+  signalTypes?: string[];
+  whyNow?: string | null;
+  hot?: boolean;
+  hasContact?: boolean;
 }
 
 export interface ScoreComponents {
@@ -105,6 +116,8 @@ export interface ParcelDetail {
     status: LeadStatus;
     leadType?: string;
     whyNow: string;
+    lastOutcome?: string | null;
+    snoozedUntil?: string | null;
     digestId: string | null;
     createdAt: string;
     updatedAt: string;
@@ -116,17 +129,30 @@ export interface LeadRow {
   status: LeadStatus;
   leadType?: string;
   whyNow: string;
+  lastOutcome?: string | null;
+  snoozedUntil?: string | null;
   createdAt: string;
   updatedAt: string;
-  feedback?: Array<{ rating: FeedbackRating; note: string | null; createdAt: string }>;
+  signalTypes?: string[];
+  feedback?: Array<{
+    rating: FeedbackRating;
+    reason?: string | null;
+    note: string | null;
+    createdAt: string;
+  }>;
   parcel: {
     id: string;
     pin: string;
     situsAddress: string | null;
     propType: string | null;
     landUseCode: string | null;
-    owner: { nameRaw: string; isAbsentee: boolean; mailingState: string | null } | null;
-    scores: Array<{ total: number }>;
+    owner: {
+      nameRaw: string;
+      isAbsentee: boolean;
+      mailingState: string | null;
+      contacts?: Array<{ phone: string | null; email: string | null; name: string | null }>;
+    } | null;
+    scores: Array<{ total: number; components?: ScoreComponents }>;
   };
 }
 
@@ -193,4 +219,35 @@ export interface HitlReview {
     owner: { nameRaw: string } | null;
     scores: Array<{ total: number }>;
   };
+}
+
+export interface TodayDashboard {
+  stats: {
+    hitlPending: number;
+    commercialParcels: number;
+    scoredParcels: number;
+    runningJobs: number;
+  };
+  runningJobs: SyncRun[];
+  recentJobs: SyncRun[];
+  callQueue: Array<{
+    leadId: string;
+    status: string;
+    whyNow: string;
+    lastOutcome: string | null;
+    pin: string;
+    situsAddress: string | null;
+    score: number | null;
+    ownerName: string | null;
+    phone: string | null;
+    email: string | null;
+    signalTypes: string[];
+  }>;
+  hotCatalysts: Array<{
+    signalType: string;
+    detectedAt: string;
+    pin: string;
+    situsAddress: string | null;
+    score: number | null;
+  }>;
 }

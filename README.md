@@ -111,6 +111,8 @@ Total capped at 100. Digest splits **Hot this week** (catalyst signals) vs everg
 
 **v3 UI:** Map, enrichment Review queue, outreach drafts on parcel detail, Admin tune-weights + CRM sync.
 
+**UX workflow:** Today home (call queue + catalysts), saved parcel views, signal chips, score explain drawer, sticky call/email bar, keyboard next/prev (`J`/`K`), outcome + snooze + feedback reasons, digest include/exclude, drive-list CSV, job progress toasts.
+
 **Second county:** set `COUNTY_SLUG=spartanburg` (scaffold) and verify field map with `npm run inspect:layer`.
 
 ## Enrichment providers (optional)

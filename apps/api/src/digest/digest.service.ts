@@ -194,13 +194,21 @@ export class DigestService {
     }));
   }
 
-  async preview(send = false): Promise<DigestPreviewResult & { digestId?: string }> {
+  async preview(
+    send = false,
+    options?: { excludePins?: string[] },
+  ): Promise<DigestPreviewResult & { digestId?: string }> {
     const topN = this.config.get<number>('digestTopN') ?? 10;
     const homeState = this.config.get<string>('countyHomeState') ?? 'SC';
     const linkBase =
       this.config.get<string>('countyParcelLinkBase') ??
       'https://www.greenvillecounty.org/appsas400/RealProperty/';
-    const candidates = await this.selectTopLeads(topN);
+    const exclude = new Set((options?.excludePins ?? []).map((p) => p.trim()).filter(Boolean));
+    let candidates = await this.selectTopLeads(Math.max(topN * 2, topN));
+    if (exclude.size) {
+      candidates = candidates.filter((c) => !exclude.has(c.pin));
+    }
+    candidates = candidates.slice(0, topN);
 
     const weekOf = formatWeekOf(new Date());
     const hotSet = new Set<string>(HOT_SIGNAL_TYPES);
@@ -281,8 +289,10 @@ export class DigestService {
     return { subject, html, leads, hotLeads, evergreenLeads, digestId: digest.id };
   }
 
-  async sendWeekly(): Promise<{ digestId: string; leadCount: number }> {
-    const result = await this.preview(true);
+  async sendWeekly(options?: {
+    excludePins?: string[];
+  }): Promise<{ digestId: string; leadCount: number }> {
+    const result = await this.preview(true, options);
     return { digestId: result.digestId!, leadCount: result.leads.length };
   }
 }

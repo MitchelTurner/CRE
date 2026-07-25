@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './state/auth';
+import { ToastProvider } from './state/toast';
 import { TokenGate } from './screens/TokenGate';
 import { Shell } from './screens/Shell';
+import { TodayPage } from './screens/TodayPage';
 import { ParcelsPage } from './screens/ParcelsPage';
 import { ParcelDetailPage } from './screens/ParcelDetailPage';
 import { PipelinePage } from './screens/PipelinePage';
@@ -26,26 +28,28 @@ function Protected({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<TokenGate />} />
-        <Route
-          path="/"
-          element={
-            <Protected>
-              <Shell />
-            </Protected>
-          }
-        >
-          <Route index element={<Navigate to="/parcels" replace />} />
-          <Route path="parcels" element={<ParcelsPage />} />
-          <Route path="parcels/:pin" element={<ParcelDetailPage />} />
-          <Route path="map" element={<MapPage />} />
-          <Route path="pipeline" element={<PipelinePage />} />
-          <Route path="review" element={<HitlPage />} />
-          <Route path="admin" element={<AdminPage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          <Route path="/login" element={<TokenGate />} />
+          <Route
+            path="/"
+            element={
+              <Protected>
+                <Shell />
+              </Protected>
+            }
+          >
+            <Route index element={<TodayPage />} />
+            <Route path="parcels" element={<ParcelsPage />} />
+            <Route path="parcels/:pin" element={<ParcelDetailPage />} />
+            <Route path="map" element={<MapPage />} />
+            <Route path="pipeline" element={<PipelinePage />} />
+            <Route path="review" element={<HitlPage />} />
+            <Route path="admin" element={<AdminPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ToastProvider>
     </AuthProvider>
   );
 }

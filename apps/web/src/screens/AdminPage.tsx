@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   enqueueEnrich,
   enqueueSync,
@@ -10,13 +10,16 @@ import {
 } from '../lib/api';
 import type { DigestPreview, SyncRun } from '../lib/types';
 import { formatDate } from '../lib/format';
+import { useToast } from '../state/toast';
 
 export function AdminPage() {
   const [runs, setRuns] = useState<SyncRun[]>([]);
   const [preview, setPreview] = useState<DigestPreview | null>(null);
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const { push } = useToast();
 
   async function refreshRuns() {
     const data = await listSyncRuns();
@@ -28,6 +31,9 @@ export function AdminPage() {
       setError(err instanceof Error ? err.message : 'Failed to load sync runs');
     });
   }, []);
+
+  const allPins = useMemo(() => preview?.leads.map((l) => l.pin) ?? [], [preview]);
+  const excludePins = useMemo(() => [...excluded], [excluded]);
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -42,7 +48,9 @@ export function AdminPage() {
         typeof (result as { note?: unknown }).note === 'string'
           ? (result as { note: string }).note
           : null;
-      setMessage(note ?? `${label} enqueued`);
+      const msg = note ?? `${label} done`;
+      setMessage(msg);
+      push(msg, 'success');
       try {
         await refreshRuns();
       } catch (refreshErr) {
@@ -53,7 +61,9 @@ export function AdminPage() {
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : `${label} failed`);
+      const msg = err instanceof Error ? err.message : `${label} failed`;
+      setError(msg);
+      push(msg, 'danger');
     } finally {
       setBusy(null);
     }
@@ -64,7 +74,7 @@ export function AdminPage() {
       <div className="mb-8">
         <h2 className="font-display text-3xl font-bold tracking-tight text-white">Admin</h2>
         <p className="text-fog mt-1 max-w-xl text-sm">
-          Sync, enrich, tune weights from feedback, push CRM, and preview/send digests.
+          Sync, enrich, tune, CRM, and curate digest include/exclude before send.
         </p>
       </div>
 
@@ -121,8 +131,9 @@ export function AdminPage() {
           disabled={!!busy}
           onClick={() =>
             void run('Digest preview', async () => {
-              const data = await previewDigest();
+              const data = await previewDigest([]);
               setPreview(data);
+              setExcluded(new Set());
             })
           }
           className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
@@ -131,16 +142,25 @@ export function AdminPage() {
         </button>
         <button
           type="button"
-          disabled={!!busy}
-          onClick={() => void run('Digest send', () => sendDigest())}
+          disabled={!!busy || !preview}
+          onClick={() => void run('Digest send', () => sendDigest(excludePins))}
           className="border-brass/60 text-brass hover:bg-brass/10 border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
-          {busy === 'Digest send' ? 'Enqueueing…' : 'Send digest now'}
+          {busy === 'Digest send'
+            ? 'Enqueueing…'
+            : `Send digest (${Math.max(0, allPins.length - excluded.size)} included)`}
         </button>
       </div>
 
       {message ? <p className="text-moss mt-4 text-sm">{message}</p> : null}
       {error ? <p className="text-danger mt-4 text-sm">{error}</p> : null}
+
+      {runs.some((r) => r.status === 'running') ? (
+        <p className="text-brass mt-4 text-sm">
+          Job running: {runs.find((r) => r.status === 'running')?.source} —{' '}
+          {runs.find((r) => r.status === 'running')?.recordsSeen ?? 0} seen
+        </p>
+      ) : null}
 
       <section className="mt-10">
         <h3 className="font-display text-xl font-bold text-white">Recent sync runs</h3>
@@ -177,55 +197,54 @@ export function AdminPage() {
                   <td className="text-fog py-2.5">{formatDate(run.startedAt)}</td>
                 </tr>
               ))}
-              {runs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-fog py-8 text-center">
-                    No sync runs yet.
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
         </div>
       </section>
 
       {preview ? (
-        <section className="mt-10 space-y-8">
+        <section className="mt-10 space-y-6">
           <div>
             <h3 className="font-display text-xl font-bold text-white">Digest preview</h3>
             <p className="text-fog mt-1 text-sm">{preview.subject}</p>
+            <p className="text-fog mt-1 text-xs">
+              Uncheck rows to exclude them from send. {excluded.size} excluded.
+            </p>
           </div>
-          {(
-            [
-              ['Hot this week', preview.hotLeads ?? preview.leads.filter((l) => l.hot)],
-              [
-                'Evergreen',
-                preview.evergreenLeads ?? preview.leads.filter((l) => !l.hot),
-              ],
-            ] as const
-          ).map(([title, rows]) => (
-            <div key={title}>
-              <h4 className="text-moss text-sm font-semibold tracking-[0.16em] uppercase">
-                {title}
-              </h4>
-              <ol className="mt-3 space-y-3">
-                {rows.map((lead) => (
-                  <li key={`${title}-${lead.pin}`} className="border-pine/40 border-b pb-3">
+          <ul className="space-y-3">
+            {preview.leads.map((lead) => {
+              const on = !excluded.has(lead.pin);
+              return (
+                <li key={lead.pin} className="border-pine/40 flex gap-3 border-b pb-3">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    className="accent-moss mt-1"
+                    onChange={() => {
+                      setExcluded((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(lead.pin)) next.delete(lead.pin);
+                        else next.add(lead.pin);
+                        return next;
+                      });
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-semibold text-white">
+                      <p className={['font-semibold', on ? 'text-white' : 'text-fog line-through'].join(' ')}>
                         {lead.rank}. {lead.situsAddress}
+                        {lead.hot ? (
+                          <span className="text-brass ml-2 text-xs uppercase">Hot</span>
+                        ) : null}
                       </p>
                       <span className="text-moss text-sm font-bold">{lead.score}</span>
                     </div>
                     <p className="text-fog mt-1 text-sm">{lead.whyNow}</p>
-                  </li>
-                ))}
-                {rows.length === 0 ? (
-                  <li className="text-fog text-sm">None this week.</li>
-                ) : null}
-              </ol>
-            </div>
-          ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       ) : null}
     </div>

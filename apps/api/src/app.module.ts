@@ -13,6 +13,7 @@ import { LeadsModule } from './leads/leads.module';
 import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './app-config/app-config.module';
 import { EnrichmentModule } from './enrichment/enrichment.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
 
@@ -38,6 +39,7 @@ import { buildRedisConnection } from './config/redis.connection';
     DigestModule,
     ParcelsModule,
     LeadsModule,
+    DashboardModule,
     AdminModule,
   ],
   controllers: [HealthController],

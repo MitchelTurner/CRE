@@ -6,6 +6,8 @@ export interface ParcelListQuery {
   minScore?: number;
   landUse?: string;
   absentee?: boolean;
+  hotOnly?: boolean;
+  missingContact?: boolean;
   sort?: 'score';
   limit?: number;
   offset?: number;
@@ -79,12 +81,96 @@ export class ParcelsService {
         LIMIT ${limit} OFFSET ${offset}
       `);
 
-      return { items: rows, limit, offset };
+      const enriched = await this.attachListMeta(rows, query);
+      return { items: enriched, limit, offset };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.warn(`Raw parcel list query failed; using Prisma fallback: ${message}`);
       return this.listWithPrismaClient(query, limit, offset);
     }
+  }
+
+  private async attachListMeta<
+    T extends { id: string; pin: string; components: unknown },
+  >(rows: T[], query: ParcelListQuery) {
+    if (!rows.length) return [];
+    const now = new Date();
+    const ids = rows.map((r) => r.id);
+    const [signals, parcelsWithOwner, leads] = await Promise.all([
+      this.prisma.signal.findMany({
+        where: {
+          parcelId: { in: ids },
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+        select: { parcelId: true, type: true },
+      }),
+      this.prisma.parcel.findMany({
+        where: { id: { in: ids } },
+        select: {
+          id: true,
+          ownerId: true,
+          owner: {
+            select: {
+              contacts: {
+                where: { OR: [{ phone: { not: null } }, { email: { not: null } }] },
+                take: 1,
+                select: { id: true },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.lead.findMany({
+        where: { parcelId: { in: ids }, status: { not: 'dead' } },
+        orderBy: { createdAt: 'desc' },
+        select: { parcelId: true, whyNow: true },
+      }),
+    ]);
+
+    const signalsByParcel = new Map<string, string[]>();
+    for (const s of signals) {
+      const list = signalsByParcel.get(s.parcelId) ?? [];
+      list.push(s.type);
+      signalsByParcel.set(s.parcelId, list);
+    }
+
+    const hasContact = new Set<string>();
+    for (const p of parcelsWithOwner) {
+      if (p.owner?.contacts?.length) hasContact.add(p.id);
+    }
+
+    const whyByParcel = new Map<string, string>();
+    for (const l of leads) {
+      if (!whyByParcel.has(l.parcelId)) whyByParcel.set(l.parcelId, l.whyNow);
+    }
+
+    const hotTypes = new Set([
+      'tax_delinquent',
+      'mortgage_maturity',
+      'foreclosure',
+      'recent_seller',
+      'sos_dissolved',
+      'zoning_change',
+      'permit_activity',
+      'nearby_listing',
+      'probate_estate',
+      'tax_sale',
+    ]);
+
+    let items = rows.map((r) => {
+      const signalTypes = [...new Set(signalsByParcel.get(r.id) ?? [])];
+      return {
+        ...r,
+        signalTypes,
+        hasContact: hasContact.has(r.id),
+        whyNow: whyByParcel.get(r.id) ?? null,
+        hot: signalTypes.some((t) => hotTypes.has(t)),
+      };
+    });
+
+    if (query.hotOnly) items = items.filter((i) => i.hot);
+    if (query.missingContact) items = items.filter((i) => !i.hasContact);
+    return items;
   }
 
   private async listWithPrismaClient(

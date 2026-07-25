@@ -7,6 +7,8 @@ const links = [
   { to: '/parcels', label: 'Parcels' },
   { to: '/map', label: 'Map' },
   { to: '/pipeline', label: 'Pipeline' },
+  { to: '/events', label: 'Events' },
+  { to: '/agents', label: 'Agents' },
   { to: '/review', label: 'Review' },
   { to: '/admin', label: 'Admin' },
 ];

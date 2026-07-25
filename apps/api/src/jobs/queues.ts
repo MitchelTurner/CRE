@@ -3,6 +3,8 @@ export const QUEUES = {
   SCORING: 'scoring',
   ENRICHMENT: 'enrichment',
   DIGEST: 'digest',
+  EVENTS: 'events',
+  REPORTS: 'reports',
 } as const;
 
 export const JOBS = {
@@ -11,4 +13,7 @@ export const JOBS = {
   SCORING_RUN_ALL: 'scoring.runAll',
   ENRICHMENT_PASS: 'enrichment.pass',
   DIGEST_WEEKLY: 'digest.weekly',
+  EVENTS_SYNC_ALL: 'events.syncAll',
+  EVENTS_AUTO_BRIEFS: 'events.autoBriefs',
+  REPORTS_QUARTERLY: 'reports.quarterly',
 } as const;

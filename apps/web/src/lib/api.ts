@@ -13,6 +13,7 @@ import type {
   ParcelListItem,
   SyncRun,
   TodayDashboard,
+  EventRow,
 } from './types';
 
 export class ApiError extends Error {
@@ -250,6 +251,90 @@ export function sendDigest(excludePins: string[] = []) {
   return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/digest/send', {
     method: 'POST',
     body: JSON.stringify({ excludePins }),
+  });
+}
+
+export function listEvents(query: { from?: string; density?: string; status?: string } = {}) {
+  const params = new URLSearchParams();
+  if (query.from) params.set('from', query.from);
+  if (query.density) params.set('density', query.density);
+  if (query.status) params.set('status', query.status);
+  const qs = params.toString();
+  return request<{ items: EventRow[] }>(`/events${qs ? `?${qs}` : ''}`);
+}
+
+export function syncEvents() {
+  return request<{ enqueued: boolean; note?: string }>('/admin/events/sync', { method: 'POST' });
+}
+
+export function createEvent(body: {
+  name: string;
+  startsAt: string;
+  hostOrg?: string;
+  ownerDensity?: string;
+  venue?: string;
+}) {
+  return request<EventRow>('/admin/events', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateEventStatus(id: string, status: string) {
+  return request<EventRow>(`/events/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function pasteEventAttendees(id: string, text: string, role = 'attendee') {
+  return request<{ linked: number }>(`/events/${encodeURIComponent(id)}/attendees/paste`, {
+    method: 'POST',
+    body: JSON.stringify({ text, role }),
+  });
+}
+
+export function generateEventBrief(id: string, email = false) {
+  return request<{ id: string; htmlBody: string; matchCount: number }>(
+    `/events/${encodeURIComponent(id)}/brief`,
+    { method: 'POST', body: JSON.stringify({ email }) },
+  );
+}
+
+export function listAgents(limit = 15) {
+  return request<{
+    items: Array<{
+      name: string;
+      address: string | null;
+      ownerCount: number;
+      parcelCount: number;
+      scoreSum: number;
+    }>;
+  }>(`/agents?limit=${limit}`);
+}
+
+export async function downloadInviteList(body: {
+  minScore?: number;
+  excludeContactedWithinDays?: number;
+  ownerType?: 'entity' | 'individual' | 'absentee';
+}) {
+  const res = await request<{ count: number; csv: string }>('/admin/invite-list', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `invite-list-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  return res;
+}
+
+export function enqueueQuarterlyReport() {
+  return request<{ enqueued: boolean; note?: string }>('/admin/reports/quarterly', {
+    method: 'POST',
   });
 }
 

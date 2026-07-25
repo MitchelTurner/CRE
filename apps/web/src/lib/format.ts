@@ -31,4 +31,6 @@ export const STATUS_LABELS: Record<string, string> = {
   contacted: 'Contacted',
   dead: 'Dead',
   deal: 'Deal',
+  invited: 'Invited',
+  attended_event: 'Attended event',
 };

@@ -1,7 +1,15 @@
 import type { LeadStatus } from '../lib/types';
 import { STATUS_LABELS } from '../lib/format';
 
-const OPTIONS: LeadStatus[] = ['new', 'sent', 'contacted', 'dead', 'deal'];
+const OPTIONS: LeadStatus[] = [
+  'new',
+  'sent',
+  'contacted',
+  'dead',
+  'deal',
+  'invited',
+  'attended_event',
+];
 
 export function StatusSelect({
   value,

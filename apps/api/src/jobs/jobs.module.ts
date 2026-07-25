@@ -10,6 +10,8 @@ import { JobsScheduler } from './jobs.scheduler';
       { name: QUEUES.SCORING },
       { name: QUEUES.ENRICHMENT },
       { name: QUEUES.DIGEST },
+      { name: QUEUES.EVENTS },
+      { name: QUEUES.REPORTS },
     ),
   ],
   providers: [JobsScheduler],

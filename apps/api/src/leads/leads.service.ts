@@ -5,7 +5,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-const ALLOWED_STATUSES = new Set(['new', 'sent', 'contacted', 'dead', 'deal']);
+const ALLOWED_STATUSES = new Set([
+  'new',
+  'sent',
+  'contacted',
+  'dead',
+  'deal',
+  'invited',
+  'attended_event',
+]);
 const ALLOWED_RATINGS = new Set(['up', 'down']);
 const ALLOWED_OUTCOMES = new Set([
   'connected',

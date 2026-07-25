@@ -243,8 +243,33 @@ export class DigestService {
       };
     });
 
-    const hotLeads = leads.filter((l) => l.hot).map((l, i) => ({ ...l, rank: i + 1 }));
-    const evergreenLeads = leads.filter((l) => !l.hot).map((l, i) => ({ ...l, rank: i + 1 }));
+    const estateLeads = leads
+      .filter((l) => l.whyNow.toLowerCase().includes('probate') || l.whyNow.toLowerCase().includes('estate'))
+      .map((l, i) => ({ ...l, rank: i + 1 }));
+    const hotLeads = leads
+      .filter((l) => l.hot && !estateLeads.some((e) => e.pin === l.pin))
+      .map((l, i) => ({ ...l, rank: i + 1 }));
+    const evergreenLeads = leads
+      .filter((l) => !l.hot && !estateLeads.some((e) => e.pin === l.pin))
+      .map((l, i) => ({ ...l, rank: i + 1 }));
+
+    const now = new Date();
+    const inTwoWeeks = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const upcomingEvents = await this.prisma.event.findMany({
+      where: {
+        startsAt: { gte: now, lte: inTwoWeeks },
+        status: { in: ['new', 'approved'] },
+        ownerDensity: { in: ['high', 'medium'] },
+      },
+      orderBy: { startsAt: 'asc' },
+      take: 12,
+    });
+    const densityRank = (d: string | null) => (d === 'high' ? 0 : 1);
+    upcomingEvents.sort(
+      (a, b) =>
+        densityRank(a.ownerDensity) - densityRank(b.ownerDensity) ||
+        a.startsAt.getTime() - b.startsAt.getTime(),
+    );
 
     const countyName = this.config.get<string>('countyName') ?? 'Greenville';
     const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new, ${hotLeads.length} hot)`;
@@ -253,6 +278,14 @@ export class DigestService {
       countyName,
       hotLeads,
       evergreenLeads,
+      estateLeads,
+      events: upcomingEvents.map((e) => ({
+        name: e.name,
+        whenLabel: e.startsAt.toLocaleString('en-US', { timeZone: 'America/New_York' }),
+        venue: e.venue,
+        ownerDensity: e.ownerDensity,
+        url: e.url,
+      })),
     });
 
     if (!send) {

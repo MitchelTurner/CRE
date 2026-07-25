@@ -4,7 +4,7 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 
 **Core thesis:** investment-sales leads are property owners who are statistically likely to sell — predictable from hold period, absentee ownership, land use, loan maturity, and distress signals.
 
-## Status (v3)
+## Status (v3 + event intelligence addendum)
 
 | Milestone | Status |
 |---|---|
@@ -12,7 +12,20 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 | M1 — Ingestion (ArcGIS → Postgres) | Done |
 | M2 — Scoring + weekly digest | Done |
 | M3 — ROD / SoS / skip-trace / dashboard | Done (providers optional via env) |
-| M4 — Portfolio graph, catalysts, map, HITL, CRM, feedback tuning | Done (feeds optional via env) |
+| Portfolio graph, catalysts, map, HITL, CRM | Done (feeds optional via env) |
+| **M4 — Event Feed** | Done (Eventbrite/ICS/HTML + manual; LLM optional) |
+| **M5 — Event Intelligence** | Done (Person↔Owner matching + briefs + paste) |
+| **M6 — Registered Agent Graph** | Done |
+| **M7 — Market Report Generator** | Done (HTML; email to agent) |
+| **M8 — Probate Signals** | Done (enrichment + paste-assist + delay config) |
+| **M9 — Host Mode** | Done (invite-list CSV) |
+
+### Event intelligence ethics
+
+- Only ingest **public** directories / sponsor / speaker lists, or lists the agent lawfully possesses.
+- No scraping behind logins. **No LinkedIn automation** — LinkedIn data enters only via manual paste.
+- Briefs are **internal prep**. Confidence is always shown; never fabricate matches.
+- Probate outreach tone/timing is the agent's judgment (`PROBATE_LEAD_DELAY_DAYS`, default 60).
 
 ### M0 findings (layer 52)
 

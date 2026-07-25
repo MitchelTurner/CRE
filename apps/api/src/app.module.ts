@@ -14,6 +14,11 @@ import { AdminModule } from './admin/admin.module';
 import { AppConfigModule } from './app-config/app-config.module';
 import { EnrichmentModule } from './enrichment/enrichment.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { LlmModule } from './llm/llm.module';
+import { EventsModule } from './events/events.module';
+import { AgentsModule } from './agents/agents.module';
+import { ReportsModule } from './reports/reports.module';
+import { HostModule } from './host/host.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
 
@@ -32,6 +37,7 @@ import { buildRedisConnection } from './config/redis.connection';
     }),
     PrismaModule,
     AppConfigModule,
+    LlmModule,
     JobsModule,
     IngestionModule,
     ScoringModule,
@@ -40,6 +46,10 @@ import { buildRedisConnection } from './config/redis.connection';
     ParcelsModule,
     LeadsModule,
     DashboardModule,
+    EventsModule,
+    AgentsModule,
+    ReportsModule,
+    HostModule,
     AdminModule,
   ],
   controllers: [HealthController],

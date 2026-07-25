@@ -15,6 +15,8 @@ export class JobsScheduler implements OnApplicationBootstrap {
     @InjectQueue(QUEUES.INGESTION) private readonly ingestionQueue: Queue,
     @InjectQueue(QUEUES.ENRICHMENT) private readonly enrichmentQueue: Queue,
     @InjectQueue(QUEUES.DIGEST) private readonly digestQueue: Queue,
+    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    @InjectQueue(QUEUES.REPORTS) private readonly reportsQueue: Queue,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -52,12 +54,47 @@ export class JobsScheduler implements OnApplicationBootstrap {
         },
       );
 
+      // M4 — Sunday evening event feed sync
+      await this.eventsQueue.add(
+        JOBS.EVENTS_SYNC_ALL,
+        { reason: 'cron' },
+        {
+          jobId: 'cron-events-weekly',
+          repeat: { pattern: '0 18 * * 0', tz: 'America/New_York' },
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+
+      // M5 — daily check for briefs 5 days before high-density events
+      await this.eventsQueue.add(
+        JOBS.EVENTS_AUTO_BRIEFS,
+        { reason: 'cron' },
+        {
+          jobId: 'cron-events-briefs',
+          repeat: { pattern: '0 9 * * *', tz: 'America/New_York' },
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+
+      // M7 — first day of quarter ~ (Jan/Apr/Jul/Oct 2nd 10:00 ET)
+      await this.reportsQueue.add(
+        JOBS.REPORTS_QUARTERLY,
+        { reason: 'cron' },
+        {
+          jobId: 'cron-reports-quarterly',
+          repeat: { pattern: '0 10 2 1,4,7,10 *', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+
       this.logger.log(
-        'Registered cron jobs: parcels.dailySync (06:00 ET), enrichment.pass (08:00 ET), digest.weekly (Mon 08:00 ET)',
+        'Registered crons: parcels, enrichment, digest, events.syncAll (Sun 18:00 ET), events.autoBriefs (daily), reports.quarterly',
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      // Do not crash the web process — crons can be re-registered on next boot.
       this.logger.error(`Failed to register cron jobs: ${message}`);
     }
   }

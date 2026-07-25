@@ -1,4 +1,11 @@
-export type LeadStatus = 'new' | 'sent' | 'contacted' | 'dead' | 'deal';
+export type LeadStatus =
+  | 'new'
+  | 'sent'
+  | 'contacted'
+  | 'dead'
+  | 'deal'
+  | 'invited'
+  | 'attended_event';
 export type FeedbackRating = 'up' | 'down';
 export type FeedbackReason = 'wrong_asset' | 'wrong_owner' | 'bad_timing' | 'other';
 export type LeadOutcome =
@@ -250,4 +257,20 @@ export interface TodayDashboard {
     situsAddress: string | null;
     score: number | null;
   }>;
+}
+
+export interface EventRow {
+  id: string;
+  name: string;
+  startsAt: string;
+  endsAt?: string | null;
+  venue?: string | null;
+  city?: string | null;
+  hostOrg?: string | null;
+  url?: string | null;
+  sourceId: string;
+  category?: string | null;
+  ownerDensity?: string | null;
+  audience?: string | null;
+  status: string;
 }

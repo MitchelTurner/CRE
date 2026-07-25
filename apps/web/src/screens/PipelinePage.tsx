@@ -16,7 +16,16 @@ import { SignalChips } from '../components/SignalChips';
 import { EmptyState } from '../components/EmptyState';
 import { useToast } from '../state/toast';
 
-const FILTERS: Array<LeadStatus | 'all'> = ['all', 'new', 'sent', 'contacted', 'dead', 'deal'];
+const FILTERS: Array<LeadStatus | 'all'> = [
+  'all',
+  'new',
+  'sent',
+  'contacted',
+  'invited',
+  'attended_event',
+  'dead',
+  'deal',
+];
 
 export function PipelinePage() {
   const [filter, setFilter] = useState<LeadStatus | 'all'>('all');

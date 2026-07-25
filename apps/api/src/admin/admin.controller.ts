@@ -8,6 +8,12 @@ import { DigestService } from '../digest/digest.service';
 import { FeedbackTuningService } from '../scoring/feedback-tuning.service';
 import { CrmSyncService } from '../leads/crm-sync.service';
 import { ParcelsSyncService } from '../ingestion/parcels-sync.service';
+import { EventsService } from '../events/events.service';
+import { InviteListService } from '../host/invite-list.service';
+import { MatchingService } from '../events/matching.service';
+import { ConfigService } from '@nestjs/config';
+import { SignalService } from '../enrichment/signal.service';
+import { normalizeOwnerName } from '@cre/shared';
 
 @Controller('admin')
 @UseGuards(ApiTokenGuard)
@@ -16,11 +22,18 @@ export class AdminController {
     @InjectQueue(QUEUES.INGESTION) private readonly ingestionQueue: Queue,
     @InjectQueue(QUEUES.ENRICHMENT) private readonly enrichmentQueue: Queue,
     @InjectQueue(QUEUES.DIGEST) private readonly digestQueue: Queue,
+    @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
+    @InjectQueue(QUEUES.REPORTS) private readonly reportsQueue: Queue,
     private readonly prisma: PrismaService,
     private readonly digest: DigestService,
     private readonly feedbackTuning: FeedbackTuningService,
     private readonly crmSync: CrmSyncService,
     private readonly parcelsSync: ParcelsSyncService,
+    private readonly events: EventsService,
+    private readonly inviteLists: InviteListService,
+    private readonly matching: MatchingService,
+    private readonly signals: SignalService,
+    private readonly config: ConfigService,
   ) {}
 
   @Post('sync')
@@ -134,6 +147,149 @@ export class AdminController {
       jobName: JOBS.DIGEST_WEEKLY,
       excluded: body?.excludePins?.length ?? 0,
       note: 'Digest queued with your include/exclude selection.',
+    };
+  }
+
+  /** M4 — enqueue weekly event feed sync */
+  @Post('events/sync')
+  async syncEvents() {
+    const job = await this.eventsQueue.add(
+      JOBS.EVENTS_SYNC_ALL,
+      { reason: 'manual' },
+      {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 50,
+        removeOnFail: 50,
+      },
+    );
+    return {
+      enqueued: true,
+      jobId: job.id,
+      jobName: JOBS.EVENTS_SYNC_ALL,
+      note: 'Event feed sync queued (Eventbrite/ICS/HTML sources per EVENT_SOURCES_ENABLED).',
+    };
+  }
+
+  /** M4 — manual event entry */
+  @Post('events')
+  createEvent(
+    @Body()
+    body: {
+      name?: string;
+      startsAt?: string;
+      endsAt?: string;
+      venue?: string;
+      city?: string;
+      hostOrg?: string;
+      url?: string;
+      category?: string;
+      ownerDensity?: string;
+      audience?: string;
+      status?: string;
+    },
+  ) {
+    return this.events.createManual({
+      name: body.name ?? '',
+      startsAt: body.startsAt ?? '',
+      endsAt: body.endsAt,
+      venue: body.venue,
+      city: body.city,
+      hostOrg: body.hostOrg,
+      url: body.url,
+      category: body.category,
+      ownerDensity: body.ownerDensity,
+      audience: body.audience,
+      status: body.status,
+    });
+  }
+
+  /** M7 — enqueue quarterly report */
+  @Post('reports/quarterly')
+  async quarterlyReport() {
+    const job = await this.reportsQueue.add(
+      JOBS.REPORTS_QUARTERLY,
+      { reason: 'manual' },
+      {
+        attempts: 2,
+        removeOnComplete: 20,
+        removeOnFail: 20,
+      },
+    );
+    return {
+      enqueued: true,
+      jobId: job.id,
+      jobName: JOBS.REPORTS_QUARTERLY,
+      note: 'Quarterly market report queued — HTML emailed when DIGEST_RECIPIENTS set.',
+    };
+  }
+
+  /** M9 — host-mode invite CSV */
+  @Post('invite-list')
+  buildInviteList(
+    @Body()
+    body?: {
+      minScore?: number;
+      landUse?: string;
+      ownerType?: 'entity' | 'individual' | 'absentee';
+      excludeContactedWithinDays?: number;
+      limit?: number;
+    },
+  ) {
+    return this.inviteLists.build(body ?? {});
+  }
+
+  /**
+   * M8 — manual-assist probate paste.
+   * Ethics: only paste public probate index rows the agent/VA lawfully obtained.
+   * Outreach timing is agent judgment; signals honor PROBATE_LEAD_DELAY_DAYS (default 60).
+   */
+  @Post('probate/paste')
+  async probatePaste(@Body('text') text: string) {
+    const rows = this.matching.parsePasteLines(text || '');
+    const delayDays = this.config.get<number>('probateLeadDelayDays') ?? 60;
+    // Detected now, but digest/outreach visibility delayed via expires/detected window in payload
+    const visibleAt = new Date(Date.now() + delayDays * 24 * 60 * 60 * 1000);
+    let matched = 0;
+    for (const row of rows) {
+      const normalized = normalizeOwnerName(row.nameRaw);
+      if (normalized.length < 5) continue;
+      const owners = await this.prisma.owner.findMany({
+        where: {
+          OR: [
+            { nameNormalized: normalized },
+            { nameNormalized: { contains: normalized.slice(0, 24) }, isEntity: false },
+          ],
+        },
+        include: {
+          parcels: { where: { isActive: true, isCommercial: true }, take: 5 },
+        },
+        take: 3,
+      });
+      for (const owner of owners) {
+        for (const parcel of owner.parcels) {
+          await this.signals.upsertSignal({
+            parcelId: parcel.id,
+            type: 'probate_estate',
+            payload: {
+              decedentName: row.nameRaw,
+              company: row.company,
+              source: 'paste',
+              visibleAt: visibleAt.toISOString(),
+              delayDays,
+              note: 'Outreach tone/timing is agent judgment — suggest waiting until visibleAt.',
+            },
+            expiresAt: new Date(Date.now() + 400 * 24 * 60 * 60 * 1000),
+          });
+          matched += 1;
+        }
+      }
+    }
+    return {
+      parsed: rows.length,
+      signalsCreated: matched,
+      delayDays,
+      note: `Probate signals created with ${delayDays}-day suggested outreach delay.`,
     };
   }
 }

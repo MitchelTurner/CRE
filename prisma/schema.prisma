@@ -43,15 +43,15 @@ model Parcel {
 }
 
 model Owner {
-  id                   String    @id @default(cuid())
+  id                   String             @id @default(cuid())
   nameRaw              String
   nameNormalized       String
-  mailingAddress       String    @default("")
+  mailingAddress       String             @default("")
   mailingCity          String?
   mailingState         String?
   mailingZip           String?
-  isEntity             Boolean   @default(false)
-  isAbsentee           Boolean   @default(false)
+  isEntity             Boolean            @default(false)
+  isAbsentee           Boolean            @default(false)
   sosEntityId          String?
   sosStatus            String?
   sosRegisteredAgent   String?
@@ -63,6 +63,7 @@ model Owner {
   relatedOwnerIds      Json?
   parcels              Parcel[]
   contacts             Contact[]
+  personMatches        PersonOwnerMatch[]
 
   @@index([nameNormalized])
   @@index([clusterKey])
@@ -194,4 +195,100 @@ model SyncRun {
 model AppConfig {
   key   String @id
   value Json
+}
+
+/// M4 — local CRE events the agent should attend (or host).
+model Event {
+  id           String          @id @default(cuid())
+  name         String
+  startsAt     DateTime
+  endsAt       DateTime?
+  venue        String?
+  city         String?
+  hostOrg      String?
+  url          String?
+  sourceId     String
+  category     String?
+  ownerDensity String?
+  audience     String?
+  rawPayload   Json
+  dedupeKey    String          @unique
+  status       String          @default("new")
+  briefs       EventBrief[]
+  attendees    EventAttendee[]
+  createdAt    DateTime        @default(now())
+
+  @@index([startsAt])
+  @@index([ownerDensity, status])
+  @@index([status])
+}
+
+/// M5 — people from directories, sponsor lists, or paste-in.
+model Person {
+  id             String             @id @default(cuid())
+  nameRaw        String
+  nameNormalized String
+  company        String?
+  title          String?
+  source         String
+  linkedinUrl    String?
+  ownerMatches   PersonOwnerMatch[]
+  eventLinks     EventAttendee[]
+  createdAt      DateTime           @default(now())
+
+  @@index([nameNormalized])
+  @@index([source])
+}
+
+model EventAttendee {
+  id       String @id @default(cuid())
+  event    Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId  String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId String
+  role     String
+
+  @@unique([eventId, personId])
+  @@index([eventId])
+  @@index([personId])
+}
+
+model PersonOwnerMatch {
+  id         String   @id @default(cuid())
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  personId   String
+  owner      Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId    String
+  confidence Float
+  method     String
+  confirmed  Boolean?
+  createdAt  DateTime @default(now())
+
+  @@unique([personId, ownerId])
+  @@index([ownerId])
+  @@index([confirmed])
+}
+
+model EventBrief {
+  id         String   @id @default(cuid())
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId    String
+  htmlBody   String
+  matchCount Int
+  createdAt  DateTime @default(now())
+
+  @@index([eventId, createdAt])
+}
+
+/// M7 — quarterly market report snapshot.
+model Report {
+  id          String   @id @default(cuid())
+  kind        String   @default("quarterly")
+  periodStart DateTime
+  periodEnd   DateTime
+  stats       Json
+  htmlBody    String
+  createdAt   DateTime @default(now())
+
+  @@index([kind, periodEnd])
 }

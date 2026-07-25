@@ -10,11 +10,21 @@ export interface DigestLeadRow {
   hot?: boolean;
 }
 
+export interface DigestEventRow {
+  name: string;
+  whenLabel: string;
+  venue: string | null;
+  ownerDensity: string | null;
+  url: string | null;
+}
+
 export function renderDigestHtml(input: {
   weekOf: string;
   countyName: string;
   hotLeads: DigestLeadRow[];
   evergreenLeads: DigestLeadRow[];
+  events?: DigestEventRow[];
+  estateLeads?: DigestLeadRow[];
 }): string {
   const hotSection = sectionHtml('Hot this week', 'New catalysts — tax, foreclosure, maturity, zoning, permits, 1031, probate', input.hotLeads);
   const evergreenSection = sectionHtml(
@@ -22,6 +32,12 @@ export function renderDigestHtml(input: {
     'Strong sell-likelihood without a brand-new catalyst',
     input.evergreenLeads,
   );
+  const estateSection = sectionHtml(
+    'Estate / probate leads',
+    'Sensitive outreach — timing and tone are your judgment (default 60-day delay)',
+    input.estateLeads ?? [],
+  );
+  const eventsSection = eventsHtml(input.events ?? []);
   const total = input.hotLeads.length + input.evergreenLeads.length;
 
   return `<!DOCTYPE html>
@@ -38,11 +54,13 @@ export function renderDigestHtml(input: {
             <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${total} new · ${input.hotLeads.length} hot</div>
           </td>
         </tr>
+        ${eventsSection}
         ${hotSection}
+        ${estateSection}
         ${evergreenSection}
         <tr>
           <td style="padding:16px 24px;background:#f9fafb;font-size:12px;color:#9ca3af;">
-            Public-records lead scores for investment sales. Contact data (if any) is for licensed-agent outreach only — not automated dialing (TCPA/DNC).
+            Public-records lead scores for investment sales. Contact data (if any) is for licensed-agent outreach only — not automated dialing (TCPA/DNC). Event briefs are internal prep only.
           </td>
         </tr>
       </table>
@@ -50,6 +68,39 @@ export function renderDigestHtml(input: {
   </table>
 </body>
 </html>`;
+}
+
+function eventsHtml(events: DigestEventRow[]): string {
+  if (!events.length) {
+    return `
+      <tr>
+        <td style="padding:20px 24px 8px;">
+          <div style="font-size:16px;font-weight:700;color:#111827;">Events in the next 2 weeks</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">High owner-density first</div>
+          <div style="padding:16px 0;color:#9ca3af;font-size:14px;">None queued — add via Admin or run event sync.</div>
+        </td>
+      </tr>`;
+  }
+  const rows = events
+    .map(
+      (e) => `
+      <tr>
+        <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;">
+          <div style="font-weight:600;">${escapeHtml(e.name)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(e.whenLabel)} · ${escapeHtml(e.venue ?? 'TBD')} · density ${escapeHtml(e.ownerDensity ?? '?')}</div>
+          ${e.url ? `<div style="font-size:12px;margin-top:4px;"><a href="${escapeHtml(e.url)}" style="color:#0f766e;">Details</a></div>` : ''}
+        </td>
+      </tr>`,
+    )
+    .join('');
+  return `
+    <tr>
+      <td style="padding:20px 24px 0;">
+        <div style="font-size:16px;font-weight:700;color:#111827;">Events in the next 2 weeks</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:2px;margin-bottom:8px;">High owner-density first — walk in knowing who owns what</div>
+        <table role="presentation" width="100%">${rows}</table>
+      </td>
+    </tr>`;
 }
 
 function sectionHtml(title: string, subtitle: string, leads: DigestLeadRow[]): string {

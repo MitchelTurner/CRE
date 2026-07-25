@@ -51,6 +51,21 @@ export default () => ({
   crmWebhookUrl: process.env.CRM_WEBHOOK_URL ?? '',
   crmWebhookToken: process.env.CRM_WEBHOOK_TOKEN ?? '',
   crmProvider: process.env.CRM_PROVIDER ?? 'webhook',
+  // M4–M9 event intelligence
+  llmEnabled: process.env.LLM_ENABLED === 'true',
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+  llmModel: process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514',
+  llmOpenerPolish: process.env.LLM_OPENER_POLISH === 'true',
+  eventSourcesEnabled:
+    process.env.EVENT_SOURCES_ENABLED ?? 'manual,eventbrite,ics',
+  eventbriteToken: process.env.EVENTBRITE_TOKEN ?? '',
+  eventIcsFeeds: process.env.EVENT_ICS_FEEDS ?? '',
+  postAndCourierEventsUrl: process.env.POST_AND_COURIER_EVENTS_URL ?? '',
+  bisnowEventsUrl: process.env.BISNOW_EVENTS_URL ?? '',
+  probateLeadDelayDays: parseInt(process.env.PROBATE_LEAD_DELAY_DAYS ?? '60', 10),
+  registeredAgentBlocklist: process.env.REGISTERED_AGENT_BLOCKLIST ?? '',
+  outreachAgentPhone: process.env.OUTREACH_AGENT_PHONE ?? '',
+  outreachAgentEmail: process.env.OUTREACH_AGENT_EMAIL ?? '',
   defaults: {
     fieldMap: process.env.ARCGIS_PARCEL_LAYER_URL
       ? DEFAULT_FIELD_MAP

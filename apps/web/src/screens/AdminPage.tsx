@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   enqueueEnrich,
+  enqueueQuarterlyReport,
   enqueueSync,
   getInventory,
   listSyncRuns,
@@ -8,6 +9,7 @@ import {
   reactivateParcels,
   sendDigest,
   syncCrm,
+  syncEvents,
   tuneWeights,
 } from '../lib/api';
 import type { DigestPreview, SyncRun } from '../lib/types';
@@ -122,6 +124,22 @@ export function AdminPage() {
           className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           {busy === 'Enrich' ? 'Enqueueing…' : 'Run enrichment'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => void run('Events sync', () => syncEvents())}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'Events sync' ? 'Enqueueing…' : 'Sync events'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => void run('Quarterly report', () => enqueueQuarterlyReport())}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'Quarterly report' ? 'Enqueueing…' : 'Quarterly report'}
         </button>
         <button
           type="button"

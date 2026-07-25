@@ -290,11 +290,24 @@ export class ParcelsService {
       LIMIT ${limit}
     `;
 
-    return { items: rows, bounds: {
-      minLat: 34.65,
-      maxLat: 35.15,
-      minLon: -82.65,
-      maxLon: -82.15,
-    } };
+    const lats = rows.map((r) => r.latitude);
+    const lons = rows.map((r) => r.longitude);
+    const pad = 0.02;
+    const bounds =
+      lats.length && lons.length
+        ? {
+            minLat: Math.min(...lats) - pad,
+            maxLat: Math.max(...lats) + pad,
+            minLon: Math.min(...lons) - pad,
+            maxLon: Math.max(...lons) + pad,
+          }
+        : {
+            minLat: 34.65,
+            maxLat: 35.15,
+            minLon: -82.65,
+            maxLon: -82.15,
+          };
+
+    return { items: rows, bounds };
   }
 }

@@ -45,6 +45,29 @@
   }
 }
 
+/* Leaflet defaults fight the app chrome — keep tiles readable on dark UI */
+.leaflet-container {
+  background: #0b1210;
+  font: inherit;
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-control-attribution {
+  background: rgba(11, 18, 16, 0.75) !important;
+  color: #9aada3 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #c6f07a !important;
+}
+
+.leaflet-bar a {
+  background: #13201b !important;
+  color: #dce5df !important;
+  border-color: #1f4d3a !important;
+}
+
 @layer utilities {
   .font-display {
     font-family: var(--font-display);

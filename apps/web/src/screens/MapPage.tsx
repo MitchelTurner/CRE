@@ -1,22 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listMapPoints, listParcels } from '../lib/api';
 import type { MapPoint, ParcelListItem } from '../lib/types';
 import { shortWhyNow } from '../lib/signals';
 import { SignalChips } from '../components/SignalChips';
 import { ScoreBar } from '../components/ScoreBar';
+import { ParcelMap } from '../components/ParcelMap';
 
 export function MapPage() {
   const [items, setItems] = useState<MapPoint[]>([]);
   const [list, setList] = useState<ParcelListItem[]>([]);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
-  const [bounds, setBounds] = useState({
-    minLat: 34.65,
-    maxLat: 35.15,
-    minLon: -82.65,
-    maxLon: -82.15,
-  });
-  const [minScore, setMinScore] = useState(40);
+  const [minScore, setMinScore] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,9 +25,13 @@ export function MapPage() {
       .then(([mapRes, listRes]) => {
         if (cancelled) return;
         setItems(mapRes.items);
-        setBounds(mapRes.bounds);
         setList(listRes.items);
-        if (!selectedPin && listRes.items[0]) setSelectedPin(listRes.items[0].pin);
+        setSelectedPin((prev) => {
+          if (prev && (mapRes.items.some((i) => i.pin === prev) || listRes.items.some((i) => i.pin === prev))) {
+            return prev;
+          }
+          return mapRes.items[0]?.pin ?? listRes.items[0]?.pin ?? null;
+        });
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Map load failed');
@@ -45,10 +44,17 @@ export function MapPage() {
     };
   }, [minScore]);
 
-  const selected = useMemo(
-    () => list.find((i) => i.pin === selectedPin) ?? null,
-    [list, selectedPin],
-  );
+  const onSelect = useCallback((pin: string) => {
+    setSelectedPin(pin);
+  }, []);
+
+  const selected = useMemo(() => {
+    return (
+      list.find((i) => i.pin === selectedPin) ??
+      items.find((i) => i.pin === selectedPin) ??
+      null
+    );
+  }, [list, items, selectedPin]);
 
   return (
     <div className="animate-fade">
@@ -56,7 +62,7 @@ export function MapPage() {
         <div>
           <h2 className="font-display text-3xl font-bold tracking-tight text-white">Map</h2>
           <p className="text-fog mt-1 max-w-xl text-sm">
-            Click a pin to highlight the list row. Same score filter drives both panes.
+            Greenville commercial pins — click the map or list to sync selection.
           </p>
         </div>
         <label className="text-fog text-sm">
@@ -75,38 +81,24 @@ export function MapPage() {
       {error ? <p className="text-danger mb-4 text-sm">{error}</p> : null}
 
       <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
-        <div className="border-pine/40 relative aspect-[16/10] w-full overflow-hidden border bg-[radial-gradient(ellipse_at_30%_20%,#1a3a2f,transparent_50%),linear-gradient(160deg,#0c1612,#14241c_55%,#0e1a14)]">
-          <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:48px_48px]" />
-          {items.map((p) => {
-            const x = ((p.longitude - bounds.minLon) / (bounds.maxLon - bounds.minLon)) * 100;
-            const y = ((bounds.maxLat - p.latitude) / (bounds.maxLat - bounds.minLat)) * 100;
-            const score = p.score ?? 0;
-            const size = 6 + Math.min(14, score / 8);
-            const active = selectedPin === p.pin;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                title={`${p.situsAddress || p.pin} · ${score}`}
-                onClick={() => setSelectedPin(p.pin)}
-                className={[
-                  'absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition',
-                  active ? 'bg-brass ring-2 ring-white/70' : 'bg-moss hover:bg-brass',
-                ].join(' ')}
-                style={{
-                  left: `${x}%`,
-                  top: `${y}%`,
-                  width: size,
-                  height: size,
-                  opacity: active ? 1 : 0.35 + Math.min(0.65, score / 100),
-                }}
-              />
-            );
-          })}
+        <div className="relative">
+          <ParcelMap items={items} selectedPin={selectedPin} onSelect={onSelect} />
           {loading ? (
-            <p className="text-fog absolute inset-0 flex items-center justify-center text-sm">
+            <p className="text-fog absolute inset-0 z-[500] flex items-center justify-center bg-ink/50 text-sm">
               Loading…
             </p>
+          ) : null}
+          {!loading && items.length === 0 ? (
+            <div className="border-pine/50 bg-ink/90 absolute inset-x-4 bottom-4 z-[500] border p-4 text-sm">
+              <p className="font-semibold text-white">No map pins yet</p>
+              <p className="text-fog mt-1">
+                Pins need coordinates from a full sync. If inventory was wiped, restore inactive
+                parcels in Admin, then re-sync.
+              </p>
+              <Link to="/admin" className="text-moss mt-2 inline-block font-semibold">
+                Open Admin
+              </Link>
+            </div>
           ) : null}
         </div>
 
@@ -141,7 +133,10 @@ export function MapPage() {
               );
             })}
           </ul>
-          {selected ? (
+          {!loading && list.length === 0 ? (
+            <p className="text-fog p-4 text-sm">No parcels match this score filter.</p>
+          ) : null}
+          {selected && 'id' in selected ? (
             <div className="border-pine/40 sticky bottom-0 border-t bg-ink/95 p-3">
               <Link
                 to={`/parcels/${encodeURIComponent(selected.pin)}`}

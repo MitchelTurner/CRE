@@ -33,7 +33,7 @@ function resolveWebDist(): string | null {
   return null;
 }
 
-const API_PREFIXES = ['/parcels', '/leads', '/admin', '/health'];
+const API_PREFIXES = ['/parcels', '/leads', '/admin', '/dashboard', '/health'];
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');

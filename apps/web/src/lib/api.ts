@@ -59,6 +59,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(res.status, message);
   }
   if (res.status === 204) return undefined as T;
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new ApiError(
+      res.status,
+      `Expected JSON from ${path} but got ${contentType || 'non-JSON'} — API route may be missing or blocked by SPA fallback`,
+    );
+  }
   return (await res.json()) as T;
 }
 

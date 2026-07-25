@@ -10,6 +10,7 @@ export default defineConfig({
       '/parcels': 'http://localhost:3000',
       '/leads': 'http://localhost:3000',
       '/admin': 'http://localhost:3000',
+      '/dashboard': 'http://localhost:3000',
       '/health': 'http://localhost:3000',
     },
   },

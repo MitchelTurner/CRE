@@ -29,11 +29,27 @@ export function AskAiPanel({
     void getAnalyticsStatus()
       .then((s) => {
         setReady(s.ready);
-        setNote(s.note);
+        setNote(
+          s.ready
+            ? s.note
+            : [
+                s.note,
+                s.diagnostics?.llmEnabledEnv != null
+                  ? `LLM_ENABLED=${JSON.stringify(s.diagnostics.llmEnabledEnv)}`
+                  : 'LLM_ENABLED=(unset)',
+                `keyLen=${s.diagnostics?.anthropicKeyLength ?? 0}`,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+        );
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setReady(false);
-        setNote('Could not read AI status');
+        setNote(
+          err instanceof Error
+            ? `Could not read AI status: ${err.message}`
+            : 'Could not read AI status',
+        );
       });
   }, []);
 

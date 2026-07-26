@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { cleanEnvSecret, resolveLlmEnabled } from '../config/env-flags';
 
 export type LlmJsonResult<T> = {
   data: T;
@@ -24,18 +25,44 @@ export type LlmTextResult = {
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
+  private loggedBoot = false;
 
-  constructor(private readonly config: ConfigService) {}
-
-  get enabled(): boolean {
-    return this.config.get<boolean>('llmEnabled') === true;
+  constructor(private readonly config: ConfigService) {
+    // Log once after first status/enabled check so Railway logs show AI wiring.
+    queueMicrotask(() => this.logBootStatus());
   }
 
-  get status(): { enabled: boolean; hasKey: boolean; model: string } {
+  private logBootStatus() {
+    if (this.loggedBoot) return;
+    this.loggedBoot = true;
+    const s = this.status;
+    this.logger.log(
+      `LLM status: enabled=${s.enabled} hasKey=${s.hasKey} model=${s.model} reason=${s.reason}`,
+    );
+  }
+
+  get enabled(): boolean {
+    // Prefer live process.env so Railway var changes after rebuild are respected.
+    return resolveLlmEnabled(process.env).enabled;
+  }
+
+  get status(): {
+    enabled: boolean;
+    hasKey: boolean;
+    model: string;
+    reason: string;
+    keyPrefix: string | null;
+  } {
+    const resolved = resolveLlmEnabled(process.env);
+    const key = cleanEnvSecret(
+      this.config.get<string>('anthropicApiKey') || process.env.ANTHROPIC_API_KEY,
+    );
     return {
-      enabled: this.enabled,
-      hasKey: Boolean((this.config.get<string>('anthropicApiKey') ?? '').trim()),
+      enabled: resolved.enabled,
+      hasKey: resolved.keyPresent,
       model: this.config.get<string>('llmModel') ?? 'claude-sonnet-4-20250514',
+      reason: resolved.reason,
+      keyPrefix: key.length > 8 ? `${key.slice(0, 7)}…` : null,
     };
   }
 
@@ -65,11 +92,16 @@ export class LlmService {
     maxTokens?: number;
   }): Promise<LlmTextResult> {
     if (!this.enabled) {
-      throw new Error('LLM_ENABLED is false — set LLM_ENABLED=true and ANTHROPIC_API_KEY on Railway');
+      throw new Error(
+        this.status.reason ||
+          'LLM off — set LLM_ENABLED=true and ANTHROPIC_API_KEY on the Railway API service, then redeploy',
+      );
     }
-    const apiKey = this.config.get<string>('anthropicApiKey') ?? '';
+    const apiKey = cleanEnvSecret(
+      this.config.get<string>('anthropicApiKey') || process.env.ANTHROPIC_API_KEY,
+    );
     if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY is not set');
+      throw new Error('ANTHROPIC_API_KEY is not set on the Railway API service');
     }
 
     const model = this.config.get<string>('llmModel') ?? 'claude-sonnet-4-20250514';

@@ -400,6 +400,13 @@ export function getAnalyticsStatus() {
     model: string;
     ready: boolean;
     note: string;
+    reason?: string;
+    keyPrefix?: string | null;
+    diagnostics?: {
+      llmEnabledEnv: string | null;
+      anthropicKeyLength: number;
+      tip?: string;
+    };
   }>('/analytics/status');
 }
 

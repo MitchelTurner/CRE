@@ -29,12 +29,23 @@ export class AnalyticsService {
 
   status() {
     const s = this.llm.status;
+    const ready = s.enabled && s.hasKey;
     return {
-      ...s,
-      ready: s.enabled && s.hasKey,
-      note: s.enabled && s.hasKey
+      enabled: s.enabled,
+      hasKey: s.hasKey,
+      model: s.model,
+      reason: s.reason,
+      keyPrefix: s.keyPrefix,
+      ready,
+      note: ready
         ? 'AI analytics ready'
-        : 'Set LLM_ENABLED=true and ANTHROPIC_API_KEY on Railway to enable Ask AI',
+        : `${s.reason}. On Railway: Variables → API service → LLM_ENABLED=true + ANTHROPIC_API_KEY → Redeploy.`,
+      // Help diagnose wrong-service / wrong-value without exposing the secret.
+      diagnostics: {
+        llmEnabledEnv: process.env.LLM_ENABLED ?? null,
+        anthropicKeyLength: (process.env.ANTHROPIC_API_KEY ?? '').trim().length,
+        tip: 'Vars must be on the same Railway service that runs Nest (API), not only the frontend.',
+      },
     };
   }
 

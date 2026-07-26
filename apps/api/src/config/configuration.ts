@@ -8,9 +8,11 @@ import {
   getCountyPreset,
 } from '@cre/shared';
 import { resolveRedisUrl } from './redis.connection';
+import { cleanEnvSecret, parseEnvFlag, resolveLlmEnabled } from './env-flags';
 
 const countySlug = (process.env.COUNTY_SLUG ?? 'greenville').trim().toLowerCase();
 const countyPreset = getCountyPreset(countySlug);
+const llm = resolveLlmEnabled(process.env);
 
 export default () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -45,17 +47,18 @@ export default () => ({
   countyHomeState: process.env.COUNTY_HOME_STATE ?? countyPreset.homeState,
   countyParcelLinkBase:
     process.env.COUNTY_PARCEL_LINK_BASE ?? countyPreset.parcelLinkBase,
-  rodScraperEnabled: process.env.ROD_SCRAPER_ENABLED === 'true',
+  rodScraperEnabled: parseEnvFlag(process.env.ROD_SCRAPER_ENABLED) === true,
   skiptraceWeeklyCap: parseInt(process.env.SKIPTRACE_WEEKLY_CAP ?? '25', 10),
   outreachAgentName: process.env.OUTREACH_AGENT_NAME ?? '',
   crmWebhookUrl: process.env.CRM_WEBHOOK_URL ?? '',
   crmWebhookToken: process.env.CRM_WEBHOOK_TOKEN ?? '',
   crmProvider: process.env.CRM_PROVIDER ?? 'webhook',
-  // M4–M9 event intelligence
-  llmEnabled: process.env.LLM_ENABLED === 'true',
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+  // AI — accept True/1/yes; auto-on when ANTHROPIC_API_KEY set unless LLM_ENABLED=false
+  llmEnabled: llm.enabled,
+  llmEnableReason: llm.reason,
+  anthropicApiKey: cleanEnvSecret(process.env.ANTHROPIC_API_KEY),
   llmModel: process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514',
-  llmOpenerPolish: process.env.LLM_OPENER_POLISH === 'true',
+  llmOpenerPolish: parseEnvFlag(process.env.LLM_OPENER_POLISH) === true,
   eventSourcesEnabled:
     process.env.EVENT_SOURCES_ENABLED ?? 'manual,seed,eventbrite,ics',
   eventbriteToken: process.env.EVENTBRITE_TOKEN ?? '',

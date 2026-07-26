@@ -50,8 +50,14 @@ export class LeadsController {
   }
 
   @Get(':id/outreach')
-  outreachDrafts(@Param('id') id: string) {
-    return this.outreach.draftsForLead(id);
+  outreachDrafts(@Param('id') id: string, @Query('llm') llm?: string) {
+    const mode =
+      llm === '0' || llm === 'false'
+        ? false
+        : llm === '1' || llm === 'true'
+          ? true
+          : ('auto' as const);
+    return this.outreach.draftsForLead(id, { llm: mode });
   }
 
   @Get(':id/neighbors')

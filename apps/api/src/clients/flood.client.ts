@@ -1,6 +1,6 @@
 /**
- * FEMA flood zone proxy. Optional FLOOD_API_URL that accepts lat/lon.
- * Without a key, flood signals are skipped (no fake zones).
+ * FEMA flood zone lookup.
+ * Prefer FLOOD_API_URL proxy when set; otherwise query public FEMA NFHL MapServer layer 28.
  */
 export interface FloodHit {
   floodZone: string;
@@ -46,10 +46,60 @@ export class HttpFloodClient implements FloodClient {
   }
 }
 
+/** Public FEMA National Flood Hazard Layer — Flood Hazard Zones. */
+export class FemaNfhlFloodClient implements FloodClient {
+  constructor(
+    private readonly layerUrl = 'https://hazards.fema.gov/gis/nfhl/rest/services/public/NFHL/MapServer/28',
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async lookupZone(lat: number, lon: number): Promise<FloodHit | null> {
+    try {
+      const qs = new URLSearchParams({
+        where: '1=1',
+        geometry: `${lon},${lat}`,
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: 'FLD_ZONE,ZONE_SUBTY,SFHA_TF',
+        returnGeometry: 'false',
+        f: 'json',
+      });
+      const res = await this.fetchImpl(`${this.layerUrl}/query?${qs}`, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'GreenvilleCRE-LeadEngine/1.0 (+fema-nfhl)',
+        },
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        features?: Array<{ attributes?: Record<string, unknown> }>;
+      };
+      const attrs = data.features?.[0]?.attributes;
+      if (!attrs) return null;
+      const zone = String(attrs.FLD_ZONE ?? '').trim();
+      if (!zone) return null;
+      return {
+        floodZone: zone,
+        payload: {
+          source: 'fema_nfhl',
+          FLD_ZONE: zone,
+          ZONE_SUBTY: attrs.ZONE_SUBTY ?? null,
+          SFHA_TF: attrs.SFHA_TF ?? null,
+        },
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
 export function createFloodClient(env: NodeJS.ProcessEnv = process.env): FloodClient {
+  if (env.FLOOD_SCRAPER_ENABLED === 'false') return new StubFloodClient();
   const url = (env.FLOOD_API_URL || '').trim();
-  if (!url) return new StubFloodClient();
-  return new HttpFloodClient(url, (env.FLOOD_API_KEY || '').trim() || undefined);
+  if (url) return new HttpFloodClient(url, (env.FLOOD_API_KEY || '').trim() || undefined);
+  // Default: public FEMA NFHL (no key).
+  return new FemaNfhlFloodClient();
 }
 
 export function isHighRiskFloodZone(zone: string | null | undefined): boolean {

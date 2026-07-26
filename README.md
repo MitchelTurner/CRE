@@ -32,7 +32,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 # optional: LLM_OPENER_POLISH=true
 ```
 
-Surfaces: **Today → Ask AI**, **Admin → Ask AI / AI market narrative**, **Parcel → Explain with AI / Polish with AI**. Answers are grounded in your DB (queue, catalysts, scores, events) — not open-web search. No LinkedIn automation.
+Surfaces: **Today → Ask AI**, **Admin → Ask AI / AI market narrative**, **Parcel → Explain with AI / Generate AI email**. Answers are grounded in your DB (queue, catalysts, scores, events) — not open-web search. No LinkedIn automation.
+
+**Per-parcel scrape:** opening a parcel (or **Refresh public data**) pulls ArcGIS attributes, FEMA flood zone, county Real Property link/HTML (best-effort), SoS for entities, ROD mortgage when enabled, and nearby comps. **Outreach emails** use the LLM when `LLM_ENABLED` is on (template fallback otherwise).
 
 ### Event intelligence ethics
 

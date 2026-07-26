@@ -15,6 +15,7 @@ export const SIGNAL_LABELS: Record<string, string> = {
   deed_comp: 'Comp',
   judgment_lien: 'Lien',
   vacancy_proxy: 'Vacancy',
+  property_scrape: 'Property scrape',
 };
 
 export function formatSignalPayload(type: string, payload: unknown): string {

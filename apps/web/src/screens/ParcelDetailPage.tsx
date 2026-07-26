@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   createLead,
+  enrichParcel,
   explainParcelAi,
+  generateParcelOutreach,
   getLeadNeighbors,
   getParcel,
   getParcelOutreach,
   logLeadOutcome,
-  polishOutreachAi,
   snoozeLead,
   updateLeadStatus,
 } from '../lib/api';
@@ -40,8 +41,30 @@ export function ParcelDetailPage() {
   } | null>(null);
   const { push } = useToast();
 
-  async function reload() {
-    const [data, drafts] = await Promise.all([getParcel(pin), getParcelOutreach(pin)]);
+  async function reload(opts?: { scrape?: boolean }) {
+    if (opts?.scrape) {
+      setAiBusy('scrape');
+      try {
+        const scraped = await enrichParcel(pin);
+        push(
+          `Scraped: ${Object.entries(scraped.sources)
+            .map(([k, v]) => `${k}=${v}`)
+            .slice(0, 4)
+            .join(' · ')}`,
+          'success',
+        );
+      } catch (err) {
+        push(err instanceof Error ? err.message : 'Scrape failed', 'danger');
+      } finally {
+        setAiBusy(null);
+      }
+    }
+
+    const [data, drafts] = await Promise.all([
+      getParcel(pin),
+      // Prefer LLM draft emails when enabled; template fallback server-side.
+      getParcelOutreach(pin, 'auto'),
+    ]);
     setParcel(data);
     setOutreach(drafts);
     const leadId = data.leads[0]?.id;
@@ -57,10 +80,15 @@ export function ParcelDetailPage() {
     let cancelled = false;
     setError(null);
     setOutreach(null);
-    void reload()
-      .catch((err: unknown) => {
+    setAiExplain(null);
+    void (async () => {
+      try {
+        // Auto-scrape public sources once when opening a parcel.
+        await reload({ scrape: true });
+      } catch (err: unknown) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load parcel');
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -199,6 +227,26 @@ export function ParcelDetailPage() {
               }
             />
           </dl>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {parcel.countyParcelUrl ? (
+              <a
+                href={parcel.countyParcelUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-moss text-sm font-semibold"
+              >
+                Open county Real Property →
+              </a>
+            ) : null}
+            <button
+              type="button"
+              disabled={!!aiBusy}
+              className="border-pine-soft text-mist border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+              onClick={() => void reload({ scrape: true })}
+            >
+              {aiBusy === 'scrape' ? 'Scraping…' : 'Refresh public data'}
+            </button>
+          </div>
 
           {parcel.saleComps?.length ? (
             <div className="border-pine/50 mt-10 border-t pt-6">
@@ -316,7 +364,14 @@ export function ParcelDetailPage() {
           {outreach ? (
             <div className="border-pine/50 mt-10 border-t pt-6">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="font-display text-xl font-bold text-white">Outreach drafts</h3>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-white">Outreach drafts</h3>
+                  <p className="text-fog mt-1 text-xs">
+                    {outreach.usedLlm || outreach.source === 'llm'
+                      ? 'AI-generated from parcel facts'
+                      : 'Template fallback — set LLM_ENABLED + ANTHROPIC_API_KEY for AI emails'}
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -324,18 +379,21 @@ export function ParcelDetailPage() {
                     className="border-pine-soft text-mist border px-2 py-1 text-xs font-semibold disabled:opacity-50"
                     onClick={() => {
                       setAiBusy('polish');
-                      void polishOutreachAi(parcel.pin)
+                      void generateParcelOutreach(parcel.pin)
                         .then((r) => {
                           setOutreach(r);
-                          push('Outreach polished', 'success');
+                          push(
+                            r.usedLlm ? 'AI email ready' : 'Template draft (AI unavailable)',
+                            r.usedLlm ? 'success' : 'info',
+                          );
                         })
                         .catch((err: unknown) =>
-                          setError(err instanceof Error ? err.message : 'Polish failed'),
+                          setError(err instanceof Error ? err.message : 'Generate failed'),
                         )
                         .finally(() => setAiBusy(null));
                     }}
                   >
-                    {aiBusy === 'polish' ? 'Polishing…' : 'Polish with AI'}
+                    {aiBusy === 'polish' ? 'Writing…' : 'Generate AI email'}
                   </button>
                   <CopyButton text={outreach.callScript} label="Copy call" />
                   <CopyButton

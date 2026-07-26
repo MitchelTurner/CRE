@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -17,7 +18,10 @@ export interface ParcelListQuery {
 export class ParcelsService {
   private readonly logger = new Logger(ParcelsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async list(query: ParcelListQuery) {
     const limit = Math.min(query.limit ?? 50, 200);
@@ -255,7 +259,12 @@ export class ParcelsService {
       throw new NotFoundException(`Parcel ${pin} not found`);
     }
 
-    return parcel;
+    const linkBase =
+      this.config.get<string>('countyParcelLinkBase') ??
+      'https://www.greenvillecounty.org/appsas400/RealProperty/';
+    const countyParcelUrl = `${linkBase.replace(/\/+$/, '')}/Default.aspx?MapNo=${encodeURIComponent(pin)}`;
+
+    return { ...parcel, countyParcelUrl };
   }
 
   async mapPoints(query: { minScore?: number; limit?: number }) {

@@ -59,6 +59,32 @@ export class ArcGisClient {
     return this.getJson<ArcGisQueryResponse>(`${this.layerUrl}/query?${qs.toString()}`);
   }
 
+  /** Single-parcel refresh from county ArcGIS by PIN. */
+  async queryByPin(pin: string): Promise<{
+    attributes: Record<string, unknown>;
+    latitude: number | null;
+    longitude: number | null;
+  } | null> {
+    const safe = pin.replace(/'/g, "''");
+    const page = await this.query({
+      where: `PIN='${safe}'`,
+      outFields: '*',
+      returnGeometry: true,
+      outSR: 4326,
+      resultRecordCount: 1,
+    });
+    const feature = page.features?.[0];
+    if (!feature?.attributes) return null;
+    const centroid = feature.geometry
+      ? centroidFromGeometry(feature.geometry as never)
+      : null;
+    return {
+      attributes: feature.attributes as Record<string, unknown>,
+      latitude: centroid?.latitude ?? null,
+      longitude: centroid?.longitude ?? null,
+    };
+  }
+
   /** Server-side match count for a where clause (returnCountOnly). */
   async countFeatures(where = '1=1'): Promise<number> {
     const page = await this.query({ where, returnCountOnly: true });

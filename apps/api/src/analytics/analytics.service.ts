@@ -88,7 +88,10 @@ export class AnalyticsService {
   }
 
   async polishOutreach(pin: string, tone?: string) {
-    this.requireLlm();
+    if (!this.status().ready) {
+      // Soft path — callers can still get template via OutreachService.
+      throw new ServiceUnavailableException(this.status().note);
+    }
     const parcel = await this.prisma.parcel.findUnique({
       where: { pin },
       include: {

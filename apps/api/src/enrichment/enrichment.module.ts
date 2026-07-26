@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JobsModule } from '../jobs/jobs.module';
+import { IngestionModule } from '../ingestion/ingestion.module';
 import { EnrichmentService } from './enrichment.service';
 import { EnrichmentProcessor } from './enrichment.processor';
 import { HitlService } from './hitl.service';
@@ -8,7 +9,7 @@ import { SignalService } from './signal.service';
 import { HitlController } from './hitl.controller';
 
 @Module({
-  imports: [JobsModule],
+  imports: [JobsModule, IngestionModule],
   controllers: [HitlController],
   providers: [EnrichmentService, EnrichmentProcessor, SignalService, OwnerGraphService, HitlService],
   exports: [EnrichmentService, SignalService, OwnerGraphService, HitlService],

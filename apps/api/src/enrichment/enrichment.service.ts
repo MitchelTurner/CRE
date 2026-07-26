@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import {
@@ -20,6 +20,10 @@ import {
   isHighRiskFloodZone,
   type FloodClient,
 } from '../clients/flood.client';
+import { createAssessorClient, type AssessorClient } from '../clients/assessor.client';
+import { ArcGisClient } from '../arcgis/arcgis.client';
+import { mapArcGisAttributes } from '../arcgis/parcel.mapper';
+import { AppConfigService } from '../app-config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { HitlService } from './hitl.service';
 import { OwnerGraphService } from './owner-graph.service';
@@ -37,6 +41,7 @@ export class EnrichmentService {
   private readonly listings: ListingsClient;
   private readonly probate: ProbateClient;
   private readonly flood: FloodClient;
+  private readonly assessor: AssessorClient;
   private skipTraceUsedThisWeek = 0;
   private skipTraceWeekKey = '';
 
@@ -46,6 +51,8 @@ export class EnrichmentService {
     private readonly signals: SignalService,
     private readonly ownerGraph: OwnerGraphService,
     private readonly hitl: HitlService,
+    private readonly arcgis: ArcGisClient,
+    private readonly appConfig: AppConfigService,
   ) {
     this.sos = createSosClient(process.env);
     this.rod = createRodClient(process.env);
@@ -56,6 +63,327 @@ export class EnrichmentService {
     this.listings = createListingsClient(process.env);
     this.probate = createProbateClient(process.env);
     this.flood = createFloodClient(process.env);
+    this.assessor = createAssessorClient(process.env);
+  }
+
+  /**
+   * On-demand public data scrape for one parcel: ArcGIS refresh, FEMA flood,
+   * assessor link/HTML, SoS (entities), ROD mortgage (if enabled), nearby comps.
+   */
+  async enrichParcelByPin(pin: string) {
+    const parcel = await this.prisma.parcel.findUnique({
+      where: { pin },
+      include: { owner: true },
+    });
+    if (!parcel) throw new NotFoundException(`Parcel ${pin} not found`);
+
+    const sources: Record<string, string> = {};
+    const details: Record<string, unknown> = {};
+
+    // 1) County ArcGIS attribute refresh
+    try {
+      const feature = await this.arcgis.queryByPin(pin);
+      if (feature) {
+        const fieldMap = await this.appConfig.getFieldMap();
+        const landUseCodes = new Set(await this.appConfig.getCommercialLandUseCodes());
+        const propTypes = new Set(await this.appConfig.getCommercialPropTypes());
+        const homeState = this.config.get<string>('countyHomeState') ?? 'SC';
+        const attrs = {
+          ...feature.attributes,
+          __latitude: feature.latitude,
+          __longitude: feature.longitude,
+        };
+        const mapped = mapArcGisAttributes(attrs, fieldMap, {
+          commercialLandUseCodes: landUseCodes,
+          commercialPropTypes: propTypes,
+          homeState,
+        });
+        if (mapped) {
+          const existingRaw =
+            parcel.rawAttributes && typeof parcel.rawAttributes === 'object'
+              ? (parcel.rawAttributes as Record<string, unknown>)
+              : {};
+          await this.prisma.parcel.update({
+            where: { id: parcel.id },
+            data: {
+              situsAddress: mapped.situsAddress,
+              landUseCode: mapped.landUseCode,
+              landUseDesc: mapped.propType,
+              propType: mapped.propType,
+              subdivision: mapped.subdivision,
+              deedDate: mapped.deedDate,
+              fairMarketVal: mapped.fairMarketVal,
+              salePrice: mapped.salePrice,
+              totalTax: mapped.totalTax,
+              paidDate: mapped.paidDate,
+              latitude: mapped.latitude ?? parcel.latitude,
+              longitude: mapped.longitude ?? parcel.longitude,
+              isCommercial: mapped.isCommercial,
+              rawAttributes: {
+                ...existingRaw,
+                ...mapped.rawAttributes,
+                _lastArcGisRefresh: new Date().toISOString(),
+              } as Prisma.InputJsonValue,
+            },
+          });
+          sources.arcgis = 'ok';
+          details.arcgis = {
+            fairMarketVal: mapped.fairMarketVal,
+            totalTax: mapped.totalTax,
+            deedDate: mapped.deedDate,
+          };
+        } else {
+          sources.arcgis = 'unmapped';
+        }
+      } else {
+        sources.arcgis = 'not_found';
+      }
+    } catch (err) {
+      sources.arcgis = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    // Reload coords after ArcGIS
+    const fresh = await this.prisma.parcel.findUnique({
+      where: { id: parcel.id },
+      include: { owner: true },
+    });
+    if (!fresh) throw new NotFoundException(`Parcel ${pin} not found`);
+
+    // 2) FEMA flood
+    try {
+      if (fresh.latitude != null && fresh.longitude != null) {
+        const hit = await this.flood.lookupZone(fresh.latitude, fresh.longitude);
+        if (hit) {
+          await this.prisma.parcel.update({
+            where: { id: fresh.id },
+            data: { floodZone: hit.floodZone },
+          });
+          if (isHighRiskFloodZone(hit.floodZone)) {
+            await this.signals.upsertSignal({
+              parcelId: fresh.id,
+              type: 'flood_zone',
+              payload: hit.payload,
+            });
+          }
+          sources.flood = 'ok';
+          details.floodZone = hit.floodZone;
+        } else {
+          sources.flood = 'no_zone';
+        }
+      } else {
+        sources.flood = 'no_coords';
+      }
+    } catch (err) {
+      sources.flood = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    // 3) Assessor public page
+    try {
+      const assessor = await this.assessor.lookupByPin(pin);
+      sources.assessor = assessor.scraped ? 'scraped' : 'link_only';
+      details.assessor = assessor;
+      await this.signals.upsertSignal({
+        parcelId: fresh.id,
+        type: 'property_scrape',
+        payload: {
+          assessor,
+          scrapedAt: new Date().toISOString(),
+        },
+      });
+    } catch (err) {
+      sources.assessor = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    // 4) Submarket from lat/lon
+    try {
+      const sub = assignSubmarket(fresh.latitude, fresh.longitude);
+      if (sub) {
+        await this.prisma.parcel.update({
+          where: { id: fresh.id },
+          data: { submarket: sub },
+        });
+        sources.submarket = sub;
+      } else {
+        sources.submarket = 'unknown';
+      }
+    } catch (err) {
+      sources.submarket = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    // 5) SoS for entities
+    const owner = fresh.owner;
+    if (owner?.isEntity) {
+      try {
+        const entity = await this.sos.resolveEntity(owner.nameRaw);
+        if (entity) {
+          await this.prisma.owner.update({
+            where: { id: owner.id },
+            data: {
+              sosEntityId: entity.entityId ?? null,
+              sosStatus: entity.status ?? null,
+              sosRegisteredAgent: entity.registeredAgent ?? null,
+              sosAgentAddress: entity.agentAddress ?? null,
+              sosFetchedAt: new Date(),
+              sosRaw: entity.raw as Prisma.InputJsonValue,
+            },
+          });
+          if (entity.registeredAgent) {
+            const exists = await this.prisma.contact.findFirst({
+              where: { ownerId: owner.id, name: entity.registeredAgent, role: 'registered_agent' },
+            });
+            if (!exists) {
+              await this.prisma.contact.create({
+                data: {
+                  ownerId: owner.id,
+                  name: entity.registeredAgent,
+                  role: 'registered_agent',
+                  source: 'sos',
+                },
+              });
+            }
+          }
+          for (const member of entity.members ?? []) {
+            const exists = await this.prisma.contact.findFirst({
+              where: { ownerId: owner.id, name: member, role: 'officer' },
+            });
+            if (!exists) {
+              await this.prisma.contact.create({
+                data: {
+                  ownerId: owner.id,
+                  name: member,
+                  role: 'officer',
+                  source: 'sos',
+                },
+              });
+            }
+          }
+          await this.signals.upsertSignal({
+            parcelId: fresh.id,
+            type: isDissolvedStatus(entity.status) ? 'sos_dissolved' : 'sos_resolved',
+            payload: {
+              legalName: entity.legalName,
+              status: entity.status,
+              registeredAgent: entity.registeredAgent,
+              members: entity.members ?? [],
+              source: entity.source,
+            },
+          });
+          sources.sos = 'ok';
+          details.sosStatus = entity.status;
+        } else {
+          sources.sos = 'stub_or_miss';
+        }
+      } catch (err) {
+        sources.sos = `error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    } else {
+      sources.sos = owner ? 'skipped_individual' : 'no_owner';
+    }
+
+    // 6) ROD mortgage (only when scraper enabled)
+    if (owner) {
+      try {
+        const mtg = await this.rod.findLatestMortgage(owner.nameRaw, fresh.pin);
+        if (mtg) {
+          const maturities = inferMortgageMaturityDates(mtg.originationDate);
+          const soon = maturities.find((m) => isMaturityWithinMonths(m, 18));
+          if (soon) {
+            await this.signals.upsertSignal({
+              parcelId: fresh.id,
+              type: 'mortgage_maturity',
+              payload: {
+                originationDate: mtg.originationDate.toISOString(),
+                inferredMaturity: soon.toISOString(),
+                lender: mtg.mortgagee,
+                loanAmount: mtg.amount ?? null,
+                book: mtg.book,
+                page: mtg.page,
+              },
+              expiresAt: soon,
+            });
+          }
+          sources.rod = 'ok';
+          details.mortgage = {
+            lender: mtg.mortgagee,
+            amount: mtg.amount,
+            originationDate: mtg.originationDate,
+          };
+        } else {
+          sources.rod = 'none_or_disabled';
+        }
+      } catch (err) {
+        sources.rod = `error: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    }
+
+    // 7) Nearby commercial parcels (DB) + active listing signals
+    try {
+      const nearby: Array<{ pin: string; miles: number; address: string | null }> = [];
+      if (fresh.latitude != null && fresh.longitude != null) {
+        const peers = await this.prisma.parcel.findMany({
+          where: {
+            isActive: true,
+            isCommercial: true,
+            id: { not: fresh.id },
+            latitude: { not: null },
+            longitude: { not: null },
+          },
+          select: {
+            pin: true,
+            situsAddress: true,
+            latitude: true,
+            longitude: true,
+          },
+          take: 400,
+        });
+        for (const p of peers) {
+          if (p.latitude == null || p.longitude == null) continue;
+          const miles = haversineMiles(
+            fresh.latitude,
+            fresh.longitude,
+            p.latitude,
+            p.longitude,
+          );
+          if (miles <= 0.5) {
+            nearby.push({
+              pin: p.pin,
+              miles: Number(miles.toFixed(2)),
+              address: p.situsAddress,
+            });
+          }
+        }
+        nearby.sort((a, b) => a.miles - b.miles);
+      }
+      const listingSignals = await this.prisma.signal.findMany({
+        where: {
+          parcelId: fresh.id,
+          type: { in: ['nearby_listing', 'vacancy_proxy', 'deed_comp'] },
+        },
+        orderBy: { detectedAt: 'desc' },
+        take: 8,
+      });
+      sources.nearby = `${nearby.length}_within_0.5mi`;
+      details.nearby = nearby.slice(0, 12);
+      details.listingSignals = listingSignals.map((s) => ({
+        type: s.type,
+        payload: s.payload,
+      }));
+    } catch (err) {
+      sources.nearby = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    await this.signals.upsertSignal({
+      parcelId: fresh.id,
+      type: 'property_scrape',
+      payload: {
+        sources,
+        details,
+        scrapedAt: new Date().toISOString(),
+      },
+    });
+
+    this.logger.log(`enrichParcelByPin ${pin}: ${JSON.stringify(sources)}`);
+    return { pin, sources, details };
   }
 
   /** Derive tax_delinquent signals for all active commercial parcels from PAIDDATE. */

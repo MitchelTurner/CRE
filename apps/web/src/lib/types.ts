@@ -78,6 +78,7 @@ export interface ParcelDetail {
   floodZone: string | null;
   submarket?: string | null;
   countySlug?: string | null;
+  countyParcelUrl?: string | null;
   isCommercial: boolean;
   isActive: boolean;
   owner: {
@@ -223,6 +224,9 @@ export interface OutreachDrafts {
   callScript: string;
   emailSubject: string;
   emailBody: string;
+  usedLlm?: boolean;
+  source?: 'llm' | 'template';
+  fallbackReason?: string;
   contact: {
     name: string | null;
     phone: string | null;

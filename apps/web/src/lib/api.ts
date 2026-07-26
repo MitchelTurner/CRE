@@ -115,8 +115,29 @@ export function getParcel(pin: string) {
   return request<ParcelDetail>(`/parcels/${encodeURIComponent(pin)}`);
 }
 
-export function getParcelOutreach(pin: string) {
-  return request<OutreachDrafts>(`/parcels/${encodeURIComponent(pin)}/outreach`);
+export function getParcelOutreach(pin: string, llm: 'auto' | boolean = 'auto') {
+  const params = new URLSearchParams();
+  if (llm === true) params.set('llm', '1');
+  if (llm === false) params.set('llm', '0');
+  const qs = params.toString();
+  return request<OutreachDrafts>(
+    `/parcels/${encodeURIComponent(pin)}/outreach${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export function generateParcelOutreach(pin: string) {
+  return request<OutreachDrafts>(`/parcels/${encodeURIComponent(pin)}/outreach`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export function enrichParcel(pin: string) {
+  return request<{
+    pin: string;
+    sources: Record<string, string>;
+    details: Record<string, unknown>;
+  }>(`/parcels/${encodeURIComponent(pin)}/enrich`, { method: 'POST' });
 }
 
 export function listLeads(status?: LeadStatus, includeSnoozed = false) {

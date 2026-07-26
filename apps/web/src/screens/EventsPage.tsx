@@ -100,7 +100,7 @@ export function EventsPage() {
   }
 
   return (
-    <div className="animate-rise space-y-8">
+    <div className="animate-fade relative z-[1] flex flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-moss text-xs font-semibold tracking-[0.22em] uppercase">Calendar</p>
@@ -311,7 +311,7 @@ export function EventsPage() {
           </div>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="flex list-none flex-col gap-4 p-0">
           {filtered.map((ev, index) => {
             const when = formatEventWhen(ev.startsAt);
             const open = expandedId === ev.id;
@@ -324,15 +324,15 @@ export function EventsPage() {
               <li
                 key={ev.id}
                 className={[
-                  'glass rounded-3xl p-4 transition md:p-5',
-                  isNext ? 'border-moss/40 ring-1 ring-moss/20' : '',
-                  attended ? 'opacity-90' : '',
+                  'event-card',
+                  isNext ? 'event-card-next' : '',
+                  attended ? 'opacity-85' : '',
                 ].join(' ')}
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-3">
                   <button
                     type="button"
-                    className="min-w-0 flex-1 text-left"
+                    className="w-full min-w-0 text-left"
                     onClick={() => toggleExpand(ev.id, open ? panel : 'people')}
                   >
                     <div className="flex flex-wrap items-center gap-2">
@@ -352,13 +352,15 @@ export function EventsPage() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="font-display mt-2 text-xl font-bold text-white">{ev.name}</p>
-                    <p className="text-mist mt-1 text-sm">
+                    <p className="font-display mt-2 break-words text-xl leading-snug font-bold text-white">
+                      {ev.name}
+                    </p>
+                    <p className="text-mist mt-1 text-sm break-words">
                       {when.absolute}
                       {ev.venue ? ` · ${ev.venue}` : ''}
                       {ev.city ? `, ${ev.city}` : ''}
                     </p>
-                    <p className="text-fog mt-1 text-xs">
+                    <p className="text-fog mt-1 text-xs break-words">
                       {ev.hostOrg || ev.sourceId}
                       {ev.category ? ` · ${ev.category}` : ''}
                       {ev.sourceId === 'seed' ? ' · placeholder' : ''}
@@ -368,7 +370,7 @@ export function EventsPage() {
                     </p>
                   </button>
 
-                  <div className="flex flex-wrap gap-2 lg:max-w-md lg:justify-end">
+                  <div className="flex w-full flex-wrap content-start gap-2">
                     {!attended ? (
                       <button
                         type="button"

@@ -45,9 +45,10 @@ export function Shell() {
   }, []);
 
   return (
-    <div className="atmosphere grain min-h-screen">
+    <div className="atmosphere grain relative min-h-screen">
       <JobWatcher />
-      <header className="relative z-10">
+      <header className="relative z-[2]">
+
         <div className="mx-auto max-w-7xl px-5 pt-5 md:px-8">
           <div className="glass flex flex-wrap items-center justify-between gap-4 rounded-3xl px-4 py-4 md:px-6">
             <div className="min-w-0">
@@ -86,9 +87,10 @@ export function Shell() {
           </nav>
         </div>
       </header>
-      <main className="relative z-10 mx-auto max-w-7xl px-5 py-8 md:px-8">
+      <main className="relative z-[2] mx-auto max-w-7xl px-5 py-8 md:px-8">
         <Outlet context={{ progress, setProgress }} />
       </main>
+
     </div>
   );
 }

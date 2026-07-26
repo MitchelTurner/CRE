@@ -119,6 +119,49 @@ export class EventsService {
     }, 'manual');
   }
 
+  /**
+   * Bulk paste future events. Format per line:
+   *   Name | 2026-08-15T17:00 | Venue | Host | https://...
+   * Also accepts comma separators. Skip blank / comment lines.
+   */
+  async pasteEvents(text: string) {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    let created = 0;
+    const errors: string[] = [];
+    for (const line of lines) {
+      const parts = line.includes('|')
+        ? line.split('|').map((p) => p.trim())
+        : line.split(',').map((p) => p.trim());
+      const [name, when, venue, hostOrg, url] = parts;
+      if (!name || !when) {
+        errors.push(`Skipped (need name + datetime): ${line.slice(0, 80)}`);
+        continue;
+      }
+      const startsAt = new Date(when);
+      if (Number.isNaN(startsAt.getTime())) {
+        errors.push(`Bad date: ${when}`);
+        continue;
+      }
+      await this.createManual({
+        name,
+        startsAt: startsAt.toISOString(),
+        venue,
+        hostOrg: hostOrg || 'pasted',
+        url,
+        city: 'Greenville',
+      });
+      created += 1;
+    }
+    return {
+      created,
+      errors,
+      note: 'Paste from public listings or copy text you lawfully obtained. No LinkedIn automation.',
+    };
+  }
+
   async upsertDraft(draft: RawEventDraft, sourceId: string) {
     const dedupeKey = eventDedupeKey(draft.name, draft.startsAt, draft.venue);
     const data: Prisma.EventCreateInput = {

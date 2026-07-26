@@ -1,15 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LlmService } from '../llm/llm.service';
 import { EventbriteClient } from './clients/eventbrite.client';
 import { HtmlEventClient } from './clients/html-event.client';
 import { IcsFeedClient } from './clients/ics.client';
+import { SeedEventClient } from './clients/seed-events.client';
 import type { EventSourceClient } from './clients/event-source.types';
 import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
-export class EventSyncService {
+export class EventSyncService implements OnModuleInit {
   private readonly logger = new Logger(EventSyncService.name);
 
   constructor(
@@ -19,14 +20,34 @@ export class EventSyncService {
     private readonly prisma: PrismaService,
   ) {}
 
+  async onModuleInit() {
+    try {
+      const upcoming = await this.prisma.event.count({
+        where: { startsAt: { gte: new Date() }, status: { not: 'hidden' } },
+      });
+      if (upcoming === 0) {
+        const seeded = await this.seedCalendar();
+        this.logger.log(`Seeded ${seeded} Greenville CRE calendar placeholders (empty feed)`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Event seed on boot skipped: ${message}`);
+    }
+  }
+
   buildClients(): EventSourceClient[] {
     const enabled = new Set(
-      (this.config.get<string>('eventSourcesEnabled') ?? 'manual,eventbrite,ics')
+      (this.config.get<string>('eventSourcesEnabled') ?? 'manual,seed,eventbrite,ics')
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean),
     );
     const clients: EventSourceClient[] = [];
+
+    // Always available — keeps Events page useful without API keys.
+    if (enabled.has('seed') || enabled.size === 0) {
+      clients.push(new SeedEventClient());
+    }
 
     if (enabled.has('eventbrite')) {
       clients.push(
@@ -43,13 +64,14 @@ export class EventSyncService {
     }
 
     if (enabled.has('postandcourier')) {
+      const url =
+        this.config.get<string>('postAndCourierEventsUrl') ||
+        'https://www.postandcourier.com/greenville/business/real-estate/';
       clients.push(
         new HtmlEventClient(
           {
             sourceId: 'postandcourier',
-            url:
-              this.config.get<string>('postAndCourierEventsUrl') ??
-              'https://www.postandcourier.com/greenville/business/real-estate/',
+            url,
             cityHint: 'Greenville',
           },
           this.llm,
@@ -58,13 +80,14 @@ export class EventSyncService {
     }
 
     if (enabled.has('bisnow')) {
+      const url =
+        this.config.get<string>('bisnowEventsUrl') ||
+        'https://www.bisnow.com/events/carolinas';
       clients.push(
         new HtmlEventClient(
           {
             sourceId: 'bisnow',
-            url:
-              this.config.get<string>('bisnowEventsUrl') ??
-              'https://www.bisnow.com/events/carolinas',
+            url,
             cityHint: 'Greenville',
           },
           this.llm,
@@ -75,14 +98,31 @@ export class EventSyncService {
     return clients;
   }
 
-  async syncAll(): Promise<{ sources: number; upserted: number }> {
+  async seedCalendar(): Promise<number> {
+    const from = new Date();
+    const to = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    const drafts = await new SeedEventClient().fetchUpcoming(from, to);
+    let n = 0;
+    for (const draft of drafts) {
+      await this.events.upsertDraft(draft, 'seed');
+      n += 1;
+    }
+    return n;
+  }
+
+  async syncAll(): Promise<{ sources: number; upserted: number; notes: string[] }> {
     const syncRun = await this.prisma.syncRun.create({
       data: { source: 'events.syncAll', status: 'running' },
     });
     const from = new Date();
     const to = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
     let upserted = 0;
+    const notes: string[] = [];
     const clients = this.buildClients();
+    const token = (this.config.get<string>('eventbriteToken') ?? '').trim();
+    const ics = (this.config.get<string>('eventIcsFeeds') ?? '').trim();
+    if (!token) notes.push('EVENTBRITE_TOKEN unset — Eventbrite returns 0');
+    if (!ics) notes.push('EVENT_ICS_FEEDS unset — no association ICS clients');
     try {
       for (const client of clients) {
         this.logger.log(`Syncing events from ${client.sourceId}`);
@@ -91,6 +131,13 @@ export class EventSyncService {
           await this.events.upsertDraft(draft, client.sourceId);
           upserted += 1;
         }
+        if (client.sourceId === 'seed') notes.push(`seed calendar: ${drafts.length}`);
+      }
+      // Guarantee a visible feed even if live sources are empty.
+      if (upserted === 0) {
+        const seeded = await this.seedCalendar();
+        upserted += seeded;
+        notes.push(`fallback seed: ${seeded}`);
       }
       await this.prisma.syncRun.update({
         where: { id: syncRun.id },
@@ -101,7 +148,7 @@ export class EventSyncService {
           recordsUpserted: upserted,
         },
       });
-      return { sources: clients.length, upserted };
+      return { sources: clients.length, upserted, notes };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await this.prisma.syncRun.update({

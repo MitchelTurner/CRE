@@ -5,6 +5,7 @@ import {
   listEvents,
   markEventAttendeeMet,
   pasteEventAttendees,
+  pasteEvents,
   syncEvents,
   updateEventStatus,
 } from '../lib/api';
@@ -17,6 +18,8 @@ export function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pasteFor, setPasteFor] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState('');
+  const [eventPasteOpen, setEventPasteOpen] = useState(false);
+  const [eventPasteText, setEventPasteText] = useState('');
   const [briefHtml, setBriefHtml] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const { push } = useToast();
@@ -50,8 +53,10 @@ export function EventsPage() {
             onClick={() => {
               setBusy('sync');
               void syncEvents()
-                .then((r) => {
+                .then(async (r) => {
                   push(r.note || 'Event sync queued', 'success');
+                  // Worker runs in-process; give it a moment then refresh.
+                  await new Promise((resolve) => setTimeout(resolve, 1200));
                   return reload();
                 })
                 .catch((err: unknown) =>
@@ -60,7 +65,15 @@ export function EventsPage() {
                 .finally(() => setBusy(null));
             }}
           >
-            Sync feeds
+            {busy === 'sync' ? 'Syncing…' : 'Sync feeds'}
+          </button>
+          <button
+            type="button"
+            disabled={!!busy}
+            className="border-pine-soft text-mist border px-3 py-2 text-sm font-semibold disabled:opacity-50"
+            onClick={() => setEventPasteOpen((v) => !v)}
+          >
+            Paste events
           </button>
           <button
             type="button"
@@ -68,7 +81,10 @@ export function EventsPage() {
             className="border-pine-soft text-mist border px-3 py-2 text-sm font-semibold disabled:opacity-50"
             onClick={() => {
               const name = window.prompt('Event name');
-              const startsAt = window.prompt('Starts at (ISO or local datetime)', new Date().toISOString());
+              const startsAt = window.prompt(
+                'Starts at (ISO or local datetime)',
+                new Date().toISOString(),
+              );
               if (!name || !startsAt) return;
               setBusy('create');
               void createEvent({ name, startsAt, hostOrg: 'manual', ownerDensity: 'high' })
@@ -89,6 +105,46 @@ export function EventsPage() {
 
       {error ? <p className="text-danger text-sm">{error}</p> : null}
 
+      {eventPasteOpen ? (
+        <div className="border-pine/40 border p-4">
+          <p className="text-sm font-semibold text-white">Paste future events</p>
+          <p className="text-fog mt-1 text-xs">
+            One per line: Name | 2026-08-15T17:00 | Venue | Host | URL — copy from public pages or
+            LinkedIn in your browser. We do not log in or scrape LinkedIn.
+          </p>
+          <textarea
+            value={eventPasteText}
+            onChange={(e) => setEventPasteText(e.target.value)}
+            rows={5}
+            placeholder={
+              'NAIOP Upstate Lunch | 2026-08-20T11:30 | Greenville | NAIOP | https://...\nCCIM Chapter | 2026-09-10T12:00 | Downtown | CCIM'
+            }
+            className="border-pine-soft bg-ink/40 mt-3 w-full border px-3 py-2 text-sm text-white"
+          />
+          <button
+            type="button"
+            className="bg-moss text-ink mt-2 px-3 py-1.5 text-sm font-semibold"
+            onClick={() => {
+              setBusy('paste-events');
+              void pasteEvents(eventPasteText)
+                .then((r) => {
+                  push(`Added ${r.created} events`, 'success');
+                  if (r.errors?.length) setError(r.errors.slice(0, 3).join(' · '));
+                  setEventPasteText('');
+                  setEventPasteOpen(false);
+                  return reload();
+                })
+                .catch((err: unknown) =>
+                  setError(err instanceof Error ? err.message : 'Paste failed'),
+                )
+                .finally(() => setBusy(null));
+            }}
+          >
+            {busy === 'paste-events' ? 'Saving…' : 'Save pasted events'}
+          </button>
+        </div>
+      ) : null}
+
       <ul className="divide-pine/40 divide-y">
         {items.map((ev) => (
           <li key={ev.id} className="flex flex-col gap-3 py-4 md:flex-row md:items-start md:justify-between">
@@ -100,6 +156,7 @@ export function EventsPage() {
               <p className="text-brass mt-2 text-xs tracking-wide uppercase">
                 {(ev.ownerDensity || 'medium').replace('_', ' ')} density · {ev.category || 'event'} ·{' '}
                 {ev.status}
+                {ev.sourceId === 'seed' ? ' · placeholder' : ''}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -208,7 +265,20 @@ export function EventsPage() {
       </ul>
 
       {items.length === 0 ? (
-        <p className="text-fog text-sm">No upcoming events. Sync feeds or add one manually.</p>
+        <div className="border-pine/40 space-y-3 border p-5">
+          <p className="text-sm font-semibold text-white">No upcoming events yet</p>
+          <p className="text-fog text-sm">
+            Click <span className="text-mist">Sync feeds</span> to load the Greenville CRE seed
+            calendar (works without API keys). For live listings, set{' '}
+            <span className="text-mist">EVENTBRITE_TOKEN</span> or{' '}
+            <span className="text-mist">EVENT_ICS_FEEDS</span> in Railway, or use{' '}
+            <span className="text-mist">Paste events</span> / <span className="text-mist">Add event</span>.
+          </p>
+          <p className="text-fog text-xs">
+            LinkedIn: copy event title + date from your browser and paste here — we will not search
+            or scrape LinkedIn for you.
+          </p>
+        </div>
       ) : null}
 
       {briefHtml ? (

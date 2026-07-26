@@ -280,6 +280,13 @@ export function createEvent(body: {
   });
 }
 
+export function pasteEvents(text: string) {
+  return request<{ created: number; errors: string[]; note?: string }>('/admin/events/paste', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+}
+
 export function updateEventStatus(id: string, status: string) {
   return request<EventRow>(`/events/${encodeURIComponent(id)}`, {
     method: 'PATCH',

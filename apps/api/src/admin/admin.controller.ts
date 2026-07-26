@@ -169,8 +169,19 @@ export class AdminController {
       enqueued: true,
       jobId: job.id,
       jobName: JOBS.EVENTS_SYNC_ALL,
-      note: 'Event feed sync queued (Eventbrite/ICS/HTML sources per EVENT_SOURCES_ENABLED).',
+      note:
+        'Event sync queued. Seed calendar fills the feed without keys; set EVENTBRITE_TOKEN / EVENT_ICS_FEEDS for live sources. No LinkedIn automation — paste events manually.',
     };
+  }
+
+  /**
+   * Paste future events (one per line):
+   *   Name | ISO-or-local datetime | Venue | Host | URL
+   * Lawful copy from public pages / LinkedIn UI only — no LinkedIn automation.
+   */
+  @Post('events/paste')
+  pasteEvents(@Body('text') text: string) {
+    return this.events.pasteEvents(text || '');
   }
 
   /** M4 — manual event entry */

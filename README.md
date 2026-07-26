@@ -23,7 +23,8 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 ### Event intelligence ethics
 
 - Only ingest **public** directories / sponsor / speaker lists, or lists the agent lawfully possesses.
-- No scraping behind logins. **No LinkedIn automation** — LinkedIn data enters only via manual paste.
+- No scraping behind logins. **No LinkedIn automation** — LinkedIn ToS forbids unauthenticated/automated search; event/people data enters only via manual paste (Events → Paste events / Paste people).
+- Live feeds: Eventbrite token, public ICS (`EVENT_ICS_FEEDS`), optional HTML+LLM sources. `seed` source ships Greenville CRE placeholders so the calendar is never blank.
 - Briefs are **internal prep**. Confidence is always shown; never fabricate matches.
 - Probate outreach tone/timing is the agent's judgment (`PROBATE_LEAD_DELAY_DAYS`, default 60).
 

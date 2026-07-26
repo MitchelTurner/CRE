@@ -57,7 +57,7 @@ export default () => ({
   llmModel: process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514',
   llmOpenerPolish: process.env.LLM_OPENER_POLISH === 'true',
   eventSourcesEnabled:
-    process.env.EVENT_SOURCES_ENABLED ?? 'manual,eventbrite,ics',
+    process.env.EVENT_SOURCES_ENABLED ?? 'manual,seed,eventbrite,ics',
   eventbriteToken: process.env.EVENTBRITE_TOKEN ?? '',
   eventIcsFeeds: process.env.EVENT_ICS_FEEDS ?? '',
   postAndCourierEventsUrl: process.env.POST_AND_COURIER_EVENTS_URL ?? '',

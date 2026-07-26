@@ -9,6 +9,53 @@ export function formatDate(value: string | null | undefined): string {
   });
 }
 
+/** Event-friendly datetime + relative cue (Today / Tomorrow / In 3 days). */
+export function formatEventWhen(value: string | null | undefined): {
+  absolute: string;
+  relative: string;
+  isPast: boolean;
+  isSoon: boolean;
+} {
+  if (!value) return { absolute: '—', relative: '', isPast: false, isSoon: false };
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    return { absolute: '—', relative: '', isPast: false, isSoon: false };
+  }
+
+  const absolute = d.toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  const now = new Date();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const startEvent = new Date(d);
+  startEvent.setHours(0, 0, 0, 0);
+  const dayDiff = Math.round(
+    (startEvent.getTime() - startToday.getTime()) / (24 * 60 * 60 * 1000),
+  );
+  const isPast = d.getTime() < now.getTime();
+
+  let relative = '';
+  if (dayDiff === 0) relative = isPast ? 'Earlier today' : 'Today';
+  else if (dayDiff === 1) relative = 'Tomorrow';
+  else if (dayDiff === -1) relative = 'Yesterday';
+  else if (dayDiff > 1 && dayDiff <= 14) relative = `In ${dayDiff} days`;
+  else if (dayDiff < -1 && dayDiff >= -14) relative = `${Math.abs(dayDiff)} days ago`;
+
+  return {
+    absolute,
+    relative,
+    isPast,
+    isSoon: !isPast && dayDiff >= 0 && dayDiff <= 7,
+  };
+}
+
+
 export function formatMoney(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
   return new Intl.NumberFormat('en-US', {

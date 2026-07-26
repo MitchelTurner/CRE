@@ -60,7 +60,7 @@ export class LlmService {
     return {
       enabled: resolved.enabled,
       hasKey: resolved.keyPresent,
-      model: this.config.get<string>('llmModel') ?? 'claude-sonnet-4-20250514',
+      model: this.config.get<string>('llmModel') ?? 'claude-sonnet-4-6',
       reason: resolved.reason,
       keyPrefix: key.length > 8 ? `${key.slice(0, 7)}…` : null,
     };
@@ -104,7 +104,7 @@ export class LlmService {
       throw new Error('ANTHROPIC_API_KEY is not set on the Railway API service');
     }
 
-    const model = this.config.get<string>('llmModel') ?? 'claude-sonnet-4-20250514';
+    const model = this.config.get<string>('llmModel') ?? 'claude-sonnet-4-6';
     let lastErr: Error | null = null;
 
     for (let attempt = 0; attempt < 3; attempt++) {

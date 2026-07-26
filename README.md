@@ -28,7 +28,7 @@ Set on Railway:
 ```bash
 LLM_ENABLED=true
 ANTHROPIC_API_KEY=sk-ant-...
-# optional: LLM_MODEL=claude-sonnet-4-20250514
+# optional: LLM_MODEL=claude-sonnet-4-6
 # optional: LLM_OPENER_POLISH=true
 ```
 

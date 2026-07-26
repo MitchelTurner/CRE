@@ -57,7 +57,7 @@ export default () => ({
   llmEnabled: llm.enabled,
   llmEnableReason: llm.reason,
   anthropicApiKey: cleanEnvSecret(process.env.ANTHROPIC_API_KEY),
-  llmModel: process.env.LLM_MODEL ?? 'claude-sonnet-4-20250514',
+  llmModel: process.env.LLM_MODEL ?? 'claude-sonnet-4-6',
   llmOpenerPolish: parseEnvFlag(process.env.LLM_OPENER_POLISH) === true,
   eventSourcesEnabled:
     process.env.EVENT_SOURCES_ENABLED ?? 'manual,seed,eventbrite,ics',

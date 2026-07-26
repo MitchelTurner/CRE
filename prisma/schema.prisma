@@ -33,6 +33,7 @@ model Parcel {
   leads            Lead[]
   enrichmentReviews EnrichmentReview[]
   saleComps        SaleComp[]
+  notes            Note[]
   firstSeenAt      DateTime           @default(now())
   lastSyncedAt     DateTime           @updatedAt
   isCommercial     Boolean            @default(false)
@@ -130,6 +131,7 @@ model Lead {
   snoozedUntil DateTime?
   feedback     LeadFeedback[]
   crmSyncs     CrmSync[]
+  notes        Note[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -224,6 +226,7 @@ model Event {
   status       String          @default("new")
   briefs       EventBrief[]
   attendees    EventAttendee[]
+  notes        Note[]
   createdAt    DateTime        @default(now())
 
   @@index([startsAt])
@@ -242,6 +245,7 @@ model Person {
   linkedinUrl    String?
   ownerMatches   PersonOwnerMatch[]
   eventLinks     EventAttendee[]
+  notes          Note[]
   createdAt      DateTime           @default(now())
 
   @@index([nameNormalized])
@@ -323,4 +327,65 @@ model Report {
   createdAt   DateTime @default(now())
 
   @@index([kind, periodEnd])
+}
+
+/// Single-tenant progress / gamification (userKey = "default").
+model UserProgress {
+  id           String    @id @default(cuid())
+  userKey      String    @unique @default("default")
+  xp           Int       @default(0)
+  level        Int       @default(1)
+  streakDays   Int       @default(0)
+  lastActiveOn DateTime?
+  updatedAt    DateTime  @updatedAt
+}
+
+model XpEvent {
+  id         String   @id @default(cuid())
+  userKey    String   @default("default")
+  action     String
+  xpDelta    Int
+  entityType String?
+  entityId   String
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userKey, createdAt])
+  @@unique([userKey, action, entityId])
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userKey  String   @default("default")
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  @@unique([userKey, badgeId])
+  @@index([userKey, earnedAt])
+}
+
+/// Freeform notes: property / connection / meeting.
+model Note {
+  id        String    @id @default(cuid())
+  kind      String
+  title     String?
+  body      String
+  parcelId  String?
+  personId  String?
+  leadId    String?
+  eventId   String?
+  meetingAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  parcel Parcel? @relation(fields: [parcelId], references: [id], onDelete: Cascade)
+  person Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  event  Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([kind, createdAt])
+  @@index([parcelId])
+  @@index([personId])
+  @@index([leadId])
+  @@index([eventId])
 }

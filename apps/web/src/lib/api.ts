@@ -8,14 +8,19 @@ import type {
   LeadRow,
   LeadStatus,
   MapPoint,
+  AwardResult,
+  NoteKind,
+  NoteRow,
   OwnerDetail,
   OutreachDrafts,
   ParcelDetail,
   ParcelListItem,
+  ProgressSummary,
   SyncRun,
   TodayDashboard,
   EventRow,
 } from './types';
+
 
 
 export class ApiError extends Error {
@@ -169,18 +174,78 @@ export function createLead(parcelId: string, whyNow?: string) {
 }
 
 export function updateLeadStatus(id: string, status: LeadStatus) {
-  return request(`/leads/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
+  return request<LeadRow & { award?: AwardResult | null }>(
+    `/leads/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    },
+  );
 }
 
 export function logLeadOutcome(id: string, outcome: LeadOutcome) {
-  return request<LeadRow>(`/leads/${encodeURIComponent(id)}/outcome`, {
+  return request<LeadRow & { award?: AwardResult | null }>(
+    `/leads/${encodeURIComponent(id)}/outcome`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ outcome }),
+    },
+  );
+}
+
+export function getProgress() {
+  return request<ProgressSummary>('/progress');
+}
+
+export function listNotes(query: {
+  kind?: NoteKind | string;
+  parcelId?: string;
+  personId?: string;
+  leadId?: string;
+  eventId?: string;
+} = {}) {
+  const params = new URLSearchParams();
+  if (query.kind) params.set('kind', query.kind);
+  if (query.parcelId) params.set('parcelId', query.parcelId);
+  if (query.personId) params.set('personId', query.personId);
+  if (query.leadId) params.set('leadId', query.leadId);
+  if (query.eventId) params.set('eventId', query.eventId);
+  const qs = params.toString();
+  return request<{ items: NoteRow[] }>(`/notes${qs ? `?${qs}` : ''}`);
+}
+
+export function createNote(input: {
+  kind: NoteKind | string;
+  body: string;
+  title?: string;
+  parcelId?: string;
+  personId?: string;
+  leadId?: string;
+  eventId?: string;
+  meetingAt?: string;
+}) {
+  return request<{ note: NoteRow; award?: AwardResult | null }>('/notes', {
     method: 'POST',
-    body: JSON.stringify({ outcome }),
+    body: JSON.stringify(input),
   });
 }
+
+export function updateNote(
+  id: string,
+  input: { body?: string; title?: string; meetingAt?: string | null },
+) {
+  return request<{ note: NoteRow }>(`/notes/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteNote(id: string) {
+  return request<{ ok: boolean }>(`/notes/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
 
 export function snoozeLead(id: string, days: 30 | 90) {
   return request<LeadRow>(`/leads/${encodeURIComponent(id)}/snooze`, {
@@ -322,11 +387,15 @@ export function pasteEvents(text: string) {
 }
 
 export function updateEventStatus(id: string, status: string) {
-  return request<EventRow>(`/events/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
+  return request<EventRow & { award?: AwardResult | null }>(
+    `/events/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    },
+  );
 }
+
 
 export function pasteEventAttendees(id: string, text: string, role = 'attendee') {
   return request<{ linked: number }>(`/events/${encodeURIComponent(id)}/attendees/paste`, {
@@ -336,11 +405,12 @@ export function pasteEventAttendees(id: string, text: string, role = 'attendee')
 }
 
 export function markEventAttendeeMet(eventId: string, personId: string, met = true) {
-  return request<{ id: string; metAt: string | null }>(
+  return request<{ id: string; metAt: string | null; award?: AwardResult | null }>(
     `/events/${encodeURIComponent(eventId)}/attendees/${encodeURIComponent(personId)}/met`,
     { method: 'POST', body: JSON.stringify({ met }) },
   );
 }
+
 
 export function generateEventBrief(id: string, email = false) {
   return request<{ id: string; htmlBody: string; matchCount: number }>(

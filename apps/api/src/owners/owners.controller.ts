@@ -1,7 +1,9 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiTokenGuard } from '../auth/api-token.guard';
 import { OwnersService } from './owners.service';
 
 @Controller('owners')
+@UseGuards(ApiTokenGuard)
 export class OwnersController {
   constructor(private readonly owners: OwnersService) {}
 

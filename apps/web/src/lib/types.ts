@@ -298,6 +298,85 @@ export interface HitlReview {
   };
 }
 
+export interface AwardResult {
+  awarded: boolean;
+  xpDelta: number;
+  xp: number;
+  level: number;
+  leveledUp: boolean;
+  streakDays: number;
+  newBadges: Array<{ id: string; name: string; description: string }>;
+  message: string | null;
+}
+
+export interface ProgressSummary {
+  xp: number;
+  level: number;
+  streakDays: number;
+  lastActiveOn: string | null;
+  intoLevel: number;
+  needForNext: number;
+  pct: number;
+  rewards: Record<string, number>;
+  quests: Array<{
+    id: string;
+    title: string;
+    target: number;
+    current: number;
+    xpHint: string;
+    done: boolean;
+    pct: number;
+  }>;
+  badges: {
+    earned: Array<{
+      id: string;
+      name: string;
+      description: string;
+      how?: string;
+      earnedAt: string;
+    }>;
+    catalog: Array<{
+      id: string;
+      name: string;
+      description: string;
+      how: string;
+      earned: boolean;
+    }>;
+  };
+  recent: Array<{
+    id: string;
+    action: string;
+    xpDelta: number;
+    entityType: string | null;
+    entityId: string | null;
+    createdAt: string;
+  }>;
+}
+
+export type NoteKind = 'property' | 'connection' | 'meeting';
+
+export interface NoteRow {
+  id: string;
+  kind: NoteKind | string;
+  title: string | null;
+  body: string;
+  parcelId: string | null;
+  personId: string | null;
+  leadId: string | null;
+  eventId: string | null;
+  meetingAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  parcel?: { id: string; pin: string; situsAddress: string | null } | null;
+  person?: { id: string; nameRaw: string; company: string | null } | null;
+  lead?: {
+    id: string;
+    status: string;
+    parcel: { pin: string; situsAddress: string | null };
+  } | null;
+  event?: { id: string; name: string; startsAt: string } | null;
+}
+
 export interface TodayDashboard {
   stats: {
     hitlPending: number;

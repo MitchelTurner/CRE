@@ -14,6 +14,9 @@ import { HitlPage } from './screens/HitlPage';
 import { EventsPage } from './screens/EventsPage';
 import { AgentsPage } from './screens/AgentsPage';
 import { OwnerDetailPage } from './screens/OwnerDetailPage';
+import { QuestsPage } from './screens/QuestsPage';
+import { NotesPage } from './screens/NotesPage';
+
 
 
 function Protected({ children }: { children: ReactNode }) {
@@ -44,11 +47,12 @@ export default function App() {
             }
           >
             <Route index element={<TodayPage />} />
+            <Route path="quests" element={<QuestsPage />} />
+            <Route path="notes" element={<NotesPage />} />
             <Route path="parcels" element={<ParcelsPage />} />
             <Route path="parcels/:pin" element={<ParcelDetailPage />} />
             <Route path="owners/:id" element={<OwnerDetailPage />} />
             <Route path="map" element={<MapPage />} />
-
             <Route path="pipeline" element={<PipelinePage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="agents" element={<AgentsPage />} />

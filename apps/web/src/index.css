@@ -1,18 +1,19 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-body: 'Figtree', system-ui, sans-serif;
-  --color-ink: #0b1210;
-  --color-ink-2: #13201b;
-  --color-pine: #1f4d3a;
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --color-ink: #070b0a;
+  --color-ink-2: #0f1814;
+  --color-pine: #1a3f31;
   --color-pine-soft: #2a6b50;
-  --color-moss: #c6f07a;
-  --color-moss-dim: #9bc45a;
-  --color-brass: #e0b85a;
-  --color-mist: #dce5df;
-  --color-fog: #9aada3;
-  --color-danger: #e07a5f;
+  --color-moss: #b8f06e;
+  --color-moss-dim: #92c955;
+  --color-brass: #e4c06a;
+  --color-mist: #e4eee8;
+  --color-fog: #8fa89b;
+  --color-danger: #ef7b5f;
+  --color-glass: rgba(15, 24, 20, 0.72);
 }
 
 @layer base {
@@ -40,32 +41,37 @@
 
   button,
   input,
-  select {
+  select,
+  textarea {
     font: inherit;
+  }
+
+  ::selection {
+    background: rgba(184, 240, 110, 0.28);
+    color: #fff;
   }
 }
 
-/* Leaflet defaults fight the app chrome — keep tiles readable on dark UI */
 .leaflet-container {
-  background: #0b1210;
+  background: #070b0a;
   font: inherit;
   width: 100%;
   height: 100%;
 }
 
 .leaflet-control-attribution {
-  background: rgba(11, 18, 16, 0.75) !important;
-  color: #9aada3 !important;
+  background: rgba(7, 11, 10, 0.75) !important;
+  color: #8fa89b !important;
 }
 
 .leaflet-control-attribution a {
-  color: #c6f07a !important;
+  color: #b8f06e !important;
 }
 
 .leaflet-bar a {
-  background: #13201b !important;
-  color: #dce5df !important;
-  border-color: #1f4d3a !important;
+  background: #0f1814 !important;
+  color: #e4eee8 !important;
+  border-color: #1a3f31 !important;
 }
 
 @layer utilities {
@@ -75,9 +81,10 @@
 
   .atmosphere {
     background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(42, 107, 80, 0.45), transparent 55%),
-      radial-gradient(900px 500px at 90% 0%, rgba(224, 184, 90, 0.12), transparent 50%),
-      linear-gradient(165deg, #0b1210 0%, #13201b 42%, #0e1915 100%);
+      radial-gradient(1000px 520px at 8% -8%, rgba(42, 107, 80, 0.5), transparent 55%),
+      radial-gradient(800px 420px at 92% 4%, rgba(228, 192, 106, 0.14), transparent 48%),
+      radial-gradient(700px 500px at 50% 100%, rgba(184, 240, 110, 0.06), transparent 55%),
+      linear-gradient(165deg, #070b0a 0%, #0f1814 46%, #0a1210 100%);
   }
 
   .grain::before {
@@ -85,9 +92,102 @@
     pointer-events: none;
     position: fixed;
     inset: 0;
-    opacity: 0.045;
+    opacity: 0.04;
     z-index: 50;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .glass {
+    background: linear-gradient(160deg, rgba(22, 36, 30, 0.82), rgba(10, 16, 14, 0.7));
+    border: 1px solid rgba(42, 107, 80, 0.35);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(14px);
+  }
+
+  .field {
+    border: 1px solid rgba(42, 107, 80, 0.55);
+    background: rgba(7, 11, 10, 0.55);
+    color: #fff;
+    border-radius: 0.75rem;
+    padding: 0.55rem 0.8rem;
+    outline: none;
+  }
+
+  .field:focus {
+    border-color: rgba(184, 240, 110, 0.65);
+    box-shadow: 0 0 0 3px rgba(184, 240, 110, 0.12);
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-moss);
+    color: var(--color-ink);
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-moss-dim);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(42, 107, 80, 0.55);
+    color: var(--color-mist);
+    font-weight: 650;
+    font-size: 0.875rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-ghost:hover {
+    border-color: rgba(184, 240, 110, 0.55);
+    color: var(--color-moss);
+  }
+
+  .chip {
+    border: 1px solid rgba(42, 107, 80, 0.45);
+    color: var(--color-fog);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+  }
+
+  .chip-active {
+    border: 1px solid rgba(184, 240, 110, 0.45);
+    background: rgba(184, 240, 110, 0.12);
+    color: var(--color-moss);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+  }
+
+  .nav-pill {
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--color-fog);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .nav-pill-active {
+    background: rgba(184, 240, 110, 0.14);
+    color: var(--color-moss);
   }
 
   .animate-rise {
@@ -102,9 +202,14 @@
     animation: fade 0.45s ease both;
   }
 
-  .score-fill {
+  .score-fill,
+  .xp-fill {
     animation: fillBar 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
     transform-origin: left center;
+  }
+
+  .pulse-moss {
+    animation: pulseMoss 1.6s ease-in-out infinite;
   }
 }
 
@@ -134,5 +239,15 @@
   }
   to {
     transform: scaleX(1);
+  }
+}
+
+@keyframes pulseMoss {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(184, 240, 110, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(184, 240, 110, 0);
   }
 }

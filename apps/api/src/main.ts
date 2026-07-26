@@ -43,8 +43,11 @@ const API_PREFIXES = [
   '/reports',
   '/analytics',
   '/owners',
+  '/progress',
+  '/notes',
   '/health',
 ];
+
 
 
 async function bootstrap(): Promise<void> {

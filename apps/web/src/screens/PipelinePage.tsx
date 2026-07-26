@@ -15,6 +15,8 @@ import { ScoreBar } from '../components/ScoreBar';
 import { SignalChips } from '../components/SignalChips';
 import { EmptyState } from '../components/EmptyState';
 import { useToast } from '../state/toast';
+import { announceAward } from '../lib/awards';
+
 
 const FILTERS: Array<LeadStatus | 'all'> = [
   'all',
@@ -129,7 +131,10 @@ export function PipelinePage() {
                     <StatusSelect
                       value={lead.status}
                       onChange={(status) =>
-                        void updateLeadStatus(lead.id, status).then(() => reload(filter))
+                        void updateLeadStatus(lead.id, status).then((r) => {
+                          announceAward(push, r.award);
+                          return reload(filter);
+                        })
                       }
                     />
                   </div>
@@ -140,11 +145,11 @@ export function PipelinePage() {
                     <button
                       key={o.id}
                       type="button"
-                      className="border-pine-soft/60 text-fog hover:border-moss hover:text-moss border px-2 py-1 text-xs font-semibold"
+                      className="border-pine-soft/60 text-fog hover:border-moss hover:text-moss rounded-full border px-3 py-1 text-xs font-semibold"
                       onClick={() =>
                         void logLeadOutcome(lead.id, o.id as LeadOutcome)
-                          .then(() => {
-                            push(`Logged ${o.label}`, 'success');
+                          .then((r) => {
+                            announceAward(push, r.award, `Logged ${o.label}`);
                             return reload(filter);
                           })
                           .catch((err: unknown) =>
@@ -155,6 +160,7 @@ export function PipelinePage() {
                       {o.label}
                     </button>
                   ))}
+
                   <button
                     type="button"
                     className="border-pine-soft/60 text-fog hover:text-mist border px-2 py-1 text-xs"

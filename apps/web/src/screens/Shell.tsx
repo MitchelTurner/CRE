@@ -1,9 +1,15 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../state/auth';
 import { JobWatcher } from '../components/JobWatcher';
+import { XpHud } from '../components/XpHud';
+import { getProgress } from '../lib/api';
+import type { ProgressSummary } from '../lib/types';
 
 const links = [
   { to: '/', label: 'Today', end: true },
+  { to: '/quests', label: 'Quests' },
+  { to: '/notes', label: 'Notes' },
   { to: '/parcels', label: 'Parcels' },
   { to: '/map', label: 'Map' },
   { to: '/pipeline', label: 'Pipeline' },
@@ -15,34 +21,56 @@ const links = [
 
 export function Shell() {
   const { logout } = useAuth();
+  const [progress, setProgress] = useState<ProgressSummary | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      getProgress()
+        .then((p) => {
+          if (!cancelled) setProgress(p);
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    void load();
+    const id = window.setInterval(() => void load(), 45000);
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   return (
     <div className="atmosphere grain min-h-screen">
       <JobWatcher />
-      <header className="border-pine/40 relative z-10 border-b">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-5 py-5 md:px-8">
-          <div>
-            <p className="text-moss mb-1 text-[10px] font-semibold tracking-[0.3em] uppercase">
-              Lead Engine
-            </p>
-            <NavLink
-              to="/"
-              className="font-display text-3xl leading-none font-extrabold tracking-tight text-white md:text-4xl"
-            >
-              GREENVILLE <span className="text-moss">CRE</span>
-            </NavLink>
+      <header className="relative z-10">
+        <div className="mx-auto max-w-7xl px-5 pt-5 md:px-8">
+          <div className="glass flex flex-wrap items-center justify-between gap-4 rounded-3xl px-4 py-4 md:px-6">
+            <div className="min-w-0">
+              <p className="text-moss mb-1 text-[10px] font-semibold tracking-[0.3em] uppercase">
+                Lead Engine
+              </p>
+              <NavLink
+                to="/"
+                className="font-display text-2xl leading-none font-extrabold tracking-tight text-white md:text-3xl"
+              >
+                GREENVILLE <span className="text-moss">CRE</span>
+              </NavLink>
+            </div>
+            <XpHud progress={progress} />
           </div>
-          <nav className="flex flex-wrap items-center gap-1">
+          <nav className="mt-3 flex flex-wrap items-center gap-1 px-1">
             {links.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
                 end={link.end}
                 className={({ isActive }) =>
-                  [
-                    'px-3 py-2 text-sm font-semibold tracking-wide transition',
-                    isActive ? 'text-moss' : 'text-fog hover:text-mist',
-                  ].join(' ')
+                  ['nav-pill', isActive ? 'nav-pill-active' : 'hover:text-mist'].join(' ')
                 }
               >
                 {link.label}
@@ -51,7 +79,7 @@ export function Shell() {
             <button
               type="button"
               onClick={logout}
-              className="text-fog hover:text-mist ml-2 px-3 py-2 text-sm"
+              className="text-fog hover:text-mist ml-auto px-3 py-2 text-sm"
             >
               Sign out
             </button>
@@ -59,7 +87,7 @@ export function Shell() {
         </div>
       </header>
       <main className="relative z-10 mx-auto max-w-7xl px-5 py-8 md:px-8">
-        <Outlet />
+        <Outlet context={{ progress, setProgress }} />
       </main>
     </div>
   );

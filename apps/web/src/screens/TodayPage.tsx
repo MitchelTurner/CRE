@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getTodayDashboard, enqueueSync } from '../lib/api';
-import type { TodayDashboard } from '../lib/types';
+import { getTodayDashboard, enqueueSync, getProgress } from '../lib/api';
+import type { ProgressSummary, TodayDashboard } from '../lib/types';
 import { SIGNAL_LABELS, shortWhyNow } from '../lib/signals';
 import { SignalChips } from '../components/SignalChips';
 import { EmptyState } from '../components/EmptyState';
@@ -12,14 +12,18 @@ import { downloadDriveListCsv, saveDriveList } from '../lib/driveList';
 
 export function TodayPage() {
   const [data, setData] = useState<TodayDashboard | null>(null);
+  const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { push } = useToast();
 
   useEffect(() => {
     let cancelled = false;
-    getTodayDashboard()
-      .then((d) => {
-        if (!cancelled) setData(d);
+    void Promise.all([getTodayDashboard(), getProgress().catch(() => null)])
+      .then(([d, p]) => {
+        if (!cancelled) {
+          setData(d);
+          setProgress(p);
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load today');
@@ -28,6 +32,7 @@ export function TodayPage() {
       cancelled = true;
     };
   }, []);
+
 
   if (error && !data) {
     return <p className="text-danger text-sm">{error}</p>;
@@ -40,18 +45,22 @@ export function TodayPage() {
   const needsSync = data.stats.commercialParcels === 0 || data.stats.scoredParcels === 0;
 
   return (
-    <div className="animate-fade space-y-10">
+    <div className="animate-rise space-y-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl font-bold tracking-tight text-white">Today</h2>
-          <p className="text-fog mt-1 max-w-xl text-sm">
-            Call queue, new catalysts, and review backlog — your daily loop in one place.
+          <p className="text-moss text-xs font-semibold tracking-[0.22em] uppercase">Daily loop</p>
+          <h2 className="font-display mt-2 text-4xl font-bold tracking-tight text-white">Today</h2>
+          <p className="text-fog mt-2 max-w-xl text-sm">
+            One clear queue. Finish quests, earn XP, write notes — then call the next lead.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link to="/quests" className="btn-ghost">
+            Quests
+          </Link>
           <button
             type="button"
-            className="border-pine-soft text-mist hover:border-moss border px-3 py-2 text-sm font-semibold"
+            className="btn-ghost"
             onClick={() => {
               const items = data.callQueue.map((c) => ({
                 pin: c.pin,
@@ -71,7 +80,7 @@ export function TodayPage() {
           {needsSync ? (
             <button
               type="button"
-              className="bg-moss text-ink hover:bg-moss-dim px-3 py-2 text-sm font-semibold"
+              className="btn-primary"
               onClick={() =>
                 void enqueueSync().then((r) => push(r.note || 'Sync enqueued', 'success'))
               }
@@ -81,6 +90,43 @@ export function TodayPage() {
           ) : null}
         </div>
       </div>
+
+      {progress ? (
+        <section className="glass rounded-3xl p-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h3 className="font-display text-xl font-bold text-white">Today&apos;s quests</h3>
+              <p className="text-fog mt-1 text-sm">
+                Level {progress.level} · {progress.xp} XP · {progress.streakDays}-day streak
+              </p>
+            </div>
+            <Link to="/quests" className="text-moss text-sm font-semibold">
+              All rewards →
+            </Link>
+          </div>
+          <ul className="mt-4 grid gap-2 md:grid-cols-2">
+            {progress.quests.map((q) => (
+              <li
+                key={q.id}
+                className={[
+                  'rounded-xl border px-3 py-2',
+                  q.done ? 'border-moss/40 bg-moss/10' : 'border-pine/40',
+                ].join(' ')}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm text-white">
+                    {q.done ? '✓ ' : '○ '}
+                    {q.title}
+                  </p>
+                  <span className="text-fog text-xs">
+                    {q.current}/{q.target}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="To call" value={String(data.callQueue.length)} to="/pipeline" />
@@ -191,7 +237,7 @@ export function TodayPage() {
 
 function Stat({ label, value, to }: { label: string; value: string; to: string }) {
   return (
-    <Link to={to} className="border-pine/40 hover:border-moss/40 border px-4 py-3 transition">
+    <Link to={to} className="glass hover:border-moss/40 rounded-2xl px-4 py-3 transition">
       <p className="text-fog text-xs tracking-[0.16em] uppercase">{label}</p>
       <p className="font-display mt-1 text-2xl font-bold text-white">{value}</p>
     </Link>

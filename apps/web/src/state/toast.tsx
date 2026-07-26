@@ -10,8 +10,9 @@ import {
 export interface ToastItem {
   id: string;
   message: string;
-  tone?: 'info' | 'success' | 'danger';
+  tone?: 'info' | 'success' | 'danger' | 'xp';
 }
+
 
 interface ToastContextValue {
   toasts: ToastItem[];
@@ -47,12 +48,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={[
-              'pointer-events-auto border px-3 py-2 text-sm shadow-lg backdrop-blur',
-              t.tone === 'success'
-                ? 'border-moss/40 bg-ink-2/95 text-moss'
-                : t.tone === 'danger'
-                  ? 'border-danger/40 bg-ink-2/95 text-danger'
-                  : 'border-pine-soft/50 bg-ink-2/95 text-mist',
+              'pointer-events-auto rounded-2xl border px-3 py-2 text-sm shadow-lg backdrop-blur',
+              t.tone === 'xp'
+                ? 'border-moss/50 bg-ink-2/95 text-moss pulse-moss'
+                : t.tone === 'success'
+                  ? 'border-moss/40 bg-ink-2/95 text-moss'
+                  : t.tone === 'danger'
+                    ? 'border-danger/40 bg-ink-2/95 text-danger'
+                    : 'border-pine-soft/50 bg-ink-2/95 text-mist',
             ].join(' ')}
           >
             <div className="flex items-start justify-between gap-3">

@@ -20,7 +20,10 @@ import { StatusSelect } from '../components/StatusSelect';
 import { CopyButton } from '../components/CopyButton';
 import { SignalChips } from '../components/SignalChips';
 import { AskAiPanel } from '../components/AskAiPanel';
+import { NotesPanel } from '../components/NotesPanel';
+import { announceAward } from '../lib/awards';
 import { useToast } from '../state/toast';
+
 
 export function ParcelDetailPage() {
   const { pin = '' } = useParams();
@@ -439,21 +442,27 @@ export function ParcelDetailPage() {
                 <StatusSelect
                   value={activeLead.status}
                   onChange={(status) =>
-                    void updateLeadStatus(activeLead.id, status).then(() => reload())
+                    void updateLeadStatus(activeLead.id, status).then((r) => {
+                      announceAward(push, r.award);
+                      return reload();
+                    })
                   }
                   disabled={busy}
                 />
                 <span className="text-fog text-xs">Updated {formatDate(activeLead.updatedAt)}</span>
               </div>
+              <p className="text-fog mt-2 text-xs">
+                Connected = +50 XP · Voicemail = +15 · Deal status = +100
+              </p>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {OUTCOMES.map((o) => (
                   <button
                     key={o.id}
                     type="button"
-                    className="border-pine-soft text-fog hover:border-moss hover:text-moss border px-2 py-1 text-xs font-semibold"
+                    className="border-pine-soft text-fog hover:border-moss hover:text-moss rounded-full border px-3 py-1 text-xs font-semibold"
                     onClick={() =>
-                      void logLeadOutcome(activeLead.id, o.id as LeadOutcome).then(() => {
-                        push(`Logged ${o.label}`, 'success');
+                      void logLeadOutcome(activeLead.id, o.id as LeadOutcome).then((r) => {
+                        announceAward(push, r.award, `Logged ${o.label}`);
                         return reload();
                       })
                     }
@@ -461,6 +470,7 @@ export function ParcelDetailPage() {
                     {o.label}
                   </button>
                 ))}
+
                 <button
                   type="button"
                   className="border-pine-soft text-fog border px-2 py-1 text-xs"
@@ -490,6 +500,27 @@ export function ParcelDetailPage() {
             </div>
           )}
           {error ? <p className="text-danger mt-4 text-sm">{error}</p> : null}
+
+          <div className="mt-10">
+            <NotesPanel
+              kind="property"
+              parcelId={parcel.id}
+              leadId={activeLead?.id}
+              heading="Property notes"
+              placeholder="Condition, access, seller vibe, next step…"
+            />
+          </div>
+          {activeLead ? (
+            <div className="mt-4">
+              <NotesPanel
+                kind="meeting"
+                leadId={activeLead.id}
+                parcelId={parcel.id}
+                heading="Meeting / call notes"
+                placeholder="Who you spoke with · what they said · follow-up date"
+              />
+            </div>
+          ) : null}
         </section>
 
         <aside className="space-y-8">

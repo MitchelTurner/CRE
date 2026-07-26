@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProgressService, type AwardResult } from '../progress/progress.service';
+
 
 const ALLOWED_STATUSES = new Set([
   'new',
@@ -39,7 +41,11 @@ const OUTCOME_STATUS: Record<string, string> = {
 
 @Injectable()
 export class LeadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly progress: ProgressService,
+  ) {}
+
 
   async list(status?: string, includeSnoozed = false) {
     if (status && !ALLOWED_STATUSES.has(status)) {
@@ -142,10 +148,19 @@ export class LeadsService {
         where: { id },
         data: { status },
       });
-      return this.getById(id);
     } catch {
       throw new NotFoundException(`Lead ${id} not found`);
     }
+    const lead = await this.getById(id);
+    let award: AwardResult | null = null;
+    if (status === 'deal' || status === 'sent' || status === 'attended_event') {
+      award = await this.progress.award({
+        action: status,
+        entityType: 'lead',
+        entityId: `${id}:${status}`,
+      });
+    }
+    return { ...lead, award };
   }
 
   async logOutcome(id: string, outcome: string) {
@@ -160,10 +175,16 @@ export class LeadsService {
         where: { id },
         data: { lastOutcome: outcome, status },
       });
-      return this.getById(id);
     } catch {
       throw new NotFoundException(`Lead ${id} not found`);
     }
+    const lead = await this.getById(id);
+    const award = await this.progress.award({
+      action: outcome,
+      entityType: 'lead',
+      entityId: `${id}:${outcome}`,
+    });
+    return { ...lead, award };
   }
 
   async snooze(id: string, days: number) {

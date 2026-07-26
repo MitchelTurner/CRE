@@ -21,8 +21,11 @@ import { ReportsModule } from './reports/reports.module';
 import { HostModule } from './host/host.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { OwnersModule } from './owners/owners.module';
+import { ProgressModule } from './progress/progress.module';
+import { NotesModule } from './notes/notes.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
+
 
 @Module({
   imports: [
@@ -54,8 +57,11 @@ import { buildRedisConnection } from './config/redis.connection';
     HostModule,
     AnalyticsModule,
     OwnersModule,
+    ProgressModule,
+    NotesModule,
     AdminModule,
   ],
+
   controllers: [HealthController],
 })
 export class AppModule {}

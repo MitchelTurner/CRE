@@ -5,6 +5,7 @@ import { eventDedupeKey } from './event-dedupe';
 import { classifyEventHeuristic } from './clients/classify-event';
 import type { RawEventDraft } from './clients/event-source.types';
 import { MatchingService } from './matching.service';
+import { ProgressService } from '../progress/progress.service';
 
 const STATUSES = new Set(['new', 'approved', 'hidden', 'attended']);
 const DENSITIES = new Set(['high', 'medium', 'low']);
@@ -14,7 +15,9 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly matching: MatchingService,
+    private readonly progress: ProgressService,
   ) {}
+
 
   async list(query: { from?: string; density?: string; status?: string }) {
     const from = query.from ? new Date(query.from) : new Date();
@@ -76,7 +79,16 @@ export class EventsService {
       throw new BadRequestException(`Invalid status. Allowed: ${[...STATUSES].join(', ')}`);
     }
     try {
-      return await this.prisma.event.update({ where: { id }, data: { status } });
+      const event = await this.prisma.event.update({ where: { id }, data: { status } });
+      let award = null;
+      if (status === 'attended') {
+        award = await this.progress.award({
+          action: 'event_attended',
+          entityType: 'event',
+          entityId: id,
+        });
+      }
+      return { ...event, award };
     } catch {
       throw new NotFoundException(`Event ${id} not found`);
     }
@@ -281,10 +293,19 @@ export class EventsService {
 
   async markMet(eventId: string, personId: string, met = true) {
     try {
-      return await this.prisma.eventAttendee.update({
+      const link = await this.prisma.eventAttendee.update({
         where: { eventId_personId: { eventId, personId } },
         data: { metAt: met ? new Date() : null },
       });
+      let award = null;
+      if (met) {
+        award = await this.progress.award({
+          action: 'person_met',
+          entityType: 'event_attendee',
+          entityId: link.id,
+        });
+      }
+      return { ...link, award };
     } catch {
       throw new NotFoundException('Attendee link not found');
     }

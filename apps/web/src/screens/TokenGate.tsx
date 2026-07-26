@@ -57,13 +57,13 @@ export function TokenGate() {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="Paste your API_TOKEN"
-              className="border-pine-soft/60 bg-ink-2/80 focus:border-moss min-h-12 flex-1 border px-4 text-mist outline-none placeholder:text-fog/50"
+              className="field min-h-12 flex-1 !rounded-2xl px-4"
               required
             />
             <button
               type="submit"
               disabled={busy || !token.trim()}
-              className="bg-moss text-ink hover:bg-moss-dim min-h-12 px-7 font-semibold tracking-wide transition disabled:opacity-50"
+              className="btn-primary min-h-12 !rounded-2xl px-7 disabled:opacity-50"
             >
               {busy ? 'Checking…' : 'Enter'}
             </button>

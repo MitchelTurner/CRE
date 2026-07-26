@@ -12,6 +12,9 @@ import {
 import type { EventRow } from '../lib/types';
 import { useToast } from '../state/toast';
 import { formatDate } from '../lib/format';
+import { announceAward } from '../lib/awards';
+import { NotesPanel } from '../components/NotesPanel';
+
 
 export function EventsPage() {
   const [items, setItems] = useState<EventRow[]>([]);
@@ -162,7 +165,7 @@ export function EventsPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="border-pine-soft text-mist border px-2 py-1 text-xs font-semibold"
+                className="btn-ghost !px-2 !py-1 !text-xs"
                 onClick={() =>
                   void updateEventStatus(ev.id, 'approved').then(() => reload())
                 }
@@ -171,14 +174,26 @@ export function EventsPage() {
               </button>
               <button
                 type="button"
-                className="border-pine-soft text-mist border px-2 py-1 text-xs font-semibold"
+                className="btn-primary !px-2 !py-1 !text-xs"
+                onClick={() =>
+                  void updateEventStatus(ev.id, 'attended').then((r) => {
+                    announceAward(push, r.award, 'Marked attended');
+                    return reload();
+                  })
+                }
+              >
+                I attended (+75 XP)
+              </button>
+              <button
+                type="button"
+                className="btn-ghost !px-2 !py-1 !text-xs"
                 onClick={() => setPasteFor(pasteFor === ev.id ? null : ev.id)}
               >
                 Paste people
               </button>
               <button
                 type="button"
-                className="bg-moss text-ink px-2 py-1 text-xs font-semibold"
+                className="btn-ghost !px-2 !py-1 !text-xs"
                 onClick={() => {
                   setBusy(ev.id);
                   void generateEventBrief(ev.id)
@@ -242,11 +257,15 @@ export function EventsPage() {
                     </div>
                     <button
                       type="button"
-                      className="border-pine-soft text-mist border px-2 py-1 text-xs font-semibold"
+                      className="btn-ghost !px-2 !py-1 !text-xs"
                       onClick={() =>
                         void markEventAttendeeMet(ev.id, a.personId, !a.metAt)
-                          .then(() => {
-                            push(a.metAt ? 'Cleared met' : 'Marked met', 'success');
+                          .then((r) => {
+                            announceAward(
+                              push,
+                              r.award,
+                              a.metAt ? 'Cleared met' : 'Marked met',
+                            );
                             return reload();
                           })
                           .catch((err: unknown) =>
@@ -254,12 +273,29 @@ export function EventsPage() {
                           )
                       }
                     >
-                      {a.metAt ? 'Clear met' : 'Mark met'}
+                      {a.metAt ? 'Clear met' : 'Mark met (+40 XP)'}
                     </button>
                   </li>
                 ))}
+                <div className="pt-2">
+                  <NotesPanel
+                    kind="meeting"
+                    eventId={ev.id}
+                    heading="Event notes"
+                    placeholder="Who you met · what they own · follow-up"
+                  />
+                </div>
               </ul>
-            ) : null}
+            ) : (
+              <div className="w-full md:basis-full">
+                <NotesPanel
+                  kind="meeting"
+                  eventId={ev.id}
+                  heading="Event notes"
+                  placeholder="Who you met · what they own · follow-up"
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>

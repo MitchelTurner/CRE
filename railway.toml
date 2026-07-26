@@ -1,6 +1,18 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
+# Single Docker image serves API + web — redeploy when either changes.
+watchPatterns = [
+  "apps/**",
+  "packages/**",
+  "prisma/**",
+  "scripts/**",
+  "Dockerfile",
+  "docker-entrypoint.sh",
+  "package.json",
+  "package-lock.json",
+  "railway.toml",
+]
 
 [deploy]
 startCommand = "/docker-entrypoint.sh"

@@ -63,6 +63,9 @@ model Owner {
   sosAgentAddress      String?
   sosFetchedAt         DateTime?
   sosRaw               Json?
+  /// Best-effort public company website (inferred or scraped).
+  websiteUrl           String?
+  websiteFetchedAt     DateTime?
   clusterKey           String?
   portfolioScore       Int?
   relatedOwnerIds      Json?

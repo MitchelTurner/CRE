@@ -225,6 +225,7 @@ export class EnrichmentService {
               sosAgentAddress: entity.agentAddress ?? null,
               sosFetchedAt: new Date(),
               sosRaw: entity.raw as Prisma.InputJsonValue,
+              ...(entity.website ? { websiteUrl: entity.website } : {}),
             },
           });
           if (entity.registeredAgent) {
@@ -242,16 +243,21 @@ export class EnrichmentService {
               });
             }
           }
-          for (const member of entity.members ?? []) {
+          const officers =
+            entity.officers && entity.officers.length > 0
+              ? entity.officers
+              : (entity.members ?? []).map((name) => ({ name, role: 'officer' as string | null }));
+          for (const officer of officers) {
+            const role = officer.role || 'officer';
             const exists = await this.prisma.contact.findFirst({
-              where: { ownerId: owner.id, name: member, role: 'officer' },
+              where: { ownerId: owner.id, name: officer.name, source: 'sos' },
             });
             if (!exists) {
               await this.prisma.contact.create({
                 data: {
                   ownerId: owner.id,
-                  name: member,
-                  role: 'officer',
+                  name: officer.name,
+                  role,
                   source: 'sos',
                 },
               });
@@ -499,6 +505,7 @@ export class EnrichmentService {
                   sosAgentAddress: entity.agentAddress ?? null,
                   sosFetchedAt: new Date(),
                   sosRaw: entity.raw as Prisma.InputJsonValue,
+                  ...(entity.website ? { websiteUrl: entity.website } : {}),
                 },
               });
 
@@ -513,20 +520,27 @@ export class EnrichmentService {
                 });
               }
 
-              for (const member of entity.members ?? []) {
+              const officers =
+                entity.officers && entity.officers.length > 0
+                  ? entity.officers
+                  : (entity.members ?? []).map((name) => ({
+                      name,
+                      role: 'officer' as string | null,
+                    }));
+              for (const officer of officers) {
                 const exists = await this.prisma.contact.findFirst({
                   where: {
                     ownerId: owner.id,
-                    name: member,
-                    role: { in: ['officer', 'manager', 'member'] },
+                    name: officer.name,
+                    source: 'sos',
                   },
                 });
                 if (!exists) {
                   await this.prisma.contact.create({
                     data: {
                       ownerId: owner.id,
-                      name: member,
-                      role: 'officer',
+                      name: officer.name,
+                      role: officer.role || 'officer',
                       source: 'sos',
                     },
                   });

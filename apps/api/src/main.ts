@@ -42,8 +42,10 @@ const API_PREFIXES = [
   '/agents',
   '/reports',
   '/analytics',
+  '/owners',
   '/health',
 ];
+
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');

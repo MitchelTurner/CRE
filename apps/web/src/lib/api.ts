@@ -8,6 +8,7 @@ import type {
   LeadRow,
   LeadStatus,
   MapPoint,
+  OwnerDetail,
   OutreachDrafts,
   ParcelDetail,
   ParcelListItem,
@@ -15,6 +16,7 @@ import type {
   TodayDashboard,
   EventRow,
 } from './types';
+
 
 export class ApiError extends Error {
   status: number;
@@ -114,6 +116,17 @@ export function listMapPoints(query: { minScore?: number; limit?: number } = {})
 export function getParcel(pin: string) {
   return request<ParcelDetail>(`/parcels/${encodeURIComponent(pin)}`);
 }
+
+export function getOwner(id: string) {
+  return request<OwnerDetail>(`/owners/${encodeURIComponent(id)}`);
+}
+
+export function refreshOwnerPeople(id: string) {
+  return request<OwnerDetail>(`/owners/${encodeURIComponent(id)}/refresh-people`, {
+    method: 'POST',
+  });
+}
+
 
 export function getParcelOutreach(pin: string, llm: 'auto' | boolean = 'auto') {
   const params = new URLSearchParams();

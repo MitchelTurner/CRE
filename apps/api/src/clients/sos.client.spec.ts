@@ -13,7 +13,7 @@ describe('extractMembers', () => {
         managers: ['Alex Manager'],
         members: [{ officer_name: 'Pat Member' }, ''],
       }),
-    ).toEqual(['Pat Member', 'Jane Doe', 'John Smith', 'Alex Manager']);
+    ).toEqual(['Jane Doe', 'John Smith', 'Alex Manager', 'Pat Member']);
   });
 
   it('dedupes and caps at 20', () => {

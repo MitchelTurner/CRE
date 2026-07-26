@@ -13,6 +13,8 @@ import { MapPage } from './screens/MapPage';
 import { HitlPage } from './screens/HitlPage';
 import { EventsPage } from './screens/EventsPage';
 import { AgentsPage } from './screens/AgentsPage';
+import { OwnerDetailPage } from './screens/OwnerDetailPage';
+
 
 function Protected({ children }: { children: ReactNode }) {
   const { ready, authenticated } = useAuth();
@@ -44,7 +46,9 @@ export default function App() {
             <Route index element={<TodayPage />} />
             <Route path="parcels" element={<ParcelsPage />} />
             <Route path="parcels/:pin" element={<ParcelDetailPage />} />
+            <Route path="owners/:id" element={<OwnerDetailPage />} />
             <Route path="map" element={<MapPage />} />
+
             <Route path="pipeline" element={<PipelinePage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="agents" element={<AgentsPage />} />

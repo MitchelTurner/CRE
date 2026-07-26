@@ -20,6 +20,7 @@ import { AgentsModule } from './agents/agents.module';
 import { ReportsModule } from './reports/reports.module';
 import { HostModule } from './host/host.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { OwnersModule } from './owners/owners.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
 
@@ -52,6 +53,7 @@ import { buildRedisConnection } from './config/redis.connection';
     ReportsModule,
     HostModule,
     AnalyticsModule,
+    OwnersModule,
     AdminModule,
   ],
   controllers: [HealthController],

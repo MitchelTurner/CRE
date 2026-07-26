@@ -186,7 +186,26 @@ export function ParcelDetailPage() {
           <SignalChips types={parcel.signals.map((s) => s.type)} max={8} />
 
           <dl className="mt-8 grid gap-4 sm:grid-cols-2">
-            <Fact label="Owner" value={parcel.owner?.nameRaw || '—'} />
+            <div>
+              <dt className="text-fog text-xs tracking-[0.16em] uppercase">Owner</dt>
+              <dd className="mt-1 text-sm text-white">
+                {parcel.owner ? (
+                  <Link
+                    to={`/owners/${encodeURIComponent(parcel.owner.id)}`}
+                    className="text-moss font-semibold hover:underline"
+                  >
+                    {parcel.owner.nameRaw}
+                  </Link>
+                ) : (
+                  '—'
+                )}
+                {parcel.owner ? (
+                  <span className="text-fog mt-1 block text-xs">
+                    Click for officers & website contacts
+                  </span>
+                ) : null}
+              </dd>
+            </div>
             <Fact
               label="Mailing"
               value={
@@ -197,6 +216,7 @@ export function ParcelDetailPage() {
                   : '—'
               }
             />
+
             <Fact label="Deed date" value={`${formatDate(parcel.deedDate)} (${yearsHeld(parcel.deedDate)}y)`} />
             <Fact label="Fair market value" value={formatMoney(parcel.fairMarketVal)} />
             <Fact label="Sale price" value={formatMoney(parcel.salePrice)} />

@@ -15,6 +15,9 @@ export interface SosEntityResult {
   principalAddress?: string;
   formedAt?: string;
   members?: string[];
+  /** Structured officers when SoS payload includes roles. */
+  officers?: Array<{ name: string; role?: string | null }>;
+  website?: string;
   raw?: unknown;
   source: 'opensosdata' | 'manual' | 'fixture';
 }
@@ -76,6 +79,8 @@ export class OpenSosDataClient implements SosClient {
       principalAddress: data.principal_address ? String(data.principal_address) : undefined,
       formedAt: data.formation_date ? String(data.formation_date) : undefined,
       members: extractMembers(data),
+      officers: extractOfficers(data),
+      website: extractWebsite(data),
       raw: data,
       source: 'opensosdata',
     };
@@ -84,20 +89,61 @@ export class OpenSosDataClient implements SosClient {
 
 /** Pull officers/managers/members from heterogeneous SoS JSON shapes. */
 export function extractMembers(data: Record<string, unknown>): string[] {
-  const out: string[] = [];
-  const push = (v: unknown) => {
-    if (typeof v === 'string' && v.trim()) out.push(v.trim());
-    else if (v && typeof v === 'object') {
+  return extractOfficers(data).map((o) => o.name);
+}
+
+export function extractOfficers(
+  data: Record<string, unknown>,
+): Array<{ name: string; role?: string | null }> {
+  const out: Array<{ name: string; role?: string | null }> = [];
+  const push = (v: unknown, defaultRole?: string) => {
+    if (typeof v === 'string' && v.trim()) {
+      out.push({ name: v.trim(), role: defaultRole ?? 'officer' });
+      return;
+    }
+    if (v && typeof v === 'object') {
       const o = v as Record<string, unknown>;
       const name = o.name ?? o.full_name ?? o.member_name ?? o.officer_name;
-      if (typeof name === 'string' && name.trim()) out.push(name.trim());
+      if (typeof name === 'string' && name.trim()) {
+        const role =
+          (typeof o.title === 'string' && o.title) ||
+          (typeof o.role === 'string' && o.role) ||
+          (typeof o.position === 'string' && o.position) ||
+          defaultRole ||
+          'officer';
+        out.push({ name: name.trim(), role });
+      }
     }
   };
-  for (const key of ['members', 'officers', 'managers', 'principals', 'directors']) {
+  for (const [key, defaultRole] of [
+    ['officers', 'officer'],
+    ['managers', 'manager'],
+    ['members', 'member'],
+    ['principals', 'principal'],
+    ['directors', 'director'],
+  ] as const) {
     const val = data[key];
-    if (Array.isArray(val)) val.forEach(push);
+    if (Array.isArray(val)) val.forEach((v) => push(v, defaultRole));
   }
-  return [...new Set(out)].slice(0, 20);
+  const seen = new Set<string>();
+  return out
+    .filter((o) => {
+      const k = o.name.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, 20);
+}
+
+export function extractWebsite(data: Record<string, unknown>): string | undefined {
+  for (const key of ['website', 'web_site', 'url', 'homepage', 'company_website']) {
+    const v = data[key];
+    if (typeof v === 'string' && /^https?:\/\//i.test(v) && !/linkedin\.com/i.test(v)) {
+      return v.trim();
+    }
+  }
+  return undefined;
 }
 
 export function isDissolvedStatus(status: string | null | undefined): boolean {

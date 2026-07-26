@@ -60,6 +60,54 @@ export interface ScoreComponents {
   missingDeedDate?: boolean;
 }
 
+export interface OwnerPerson {
+  id: string;
+  name: string | null;
+  role: string | null;
+  email: string | null;
+  phone: string | null;
+  source: string;
+  createdAt?: string;
+}
+
+export interface OwnerDetail {
+  id: string;
+  nameRaw: string;
+  mailingAddress: string | null;
+  mailingCity: string | null;
+  mailingState: string | null;
+  mailingZip: string | null;
+  isEntity: boolean;
+  isAbsentee: boolean;
+  sosEntityId: string | null;
+  sosStatus: string | null;
+  sosRegisteredAgent: string | null;
+  sosAgentAddress: string | null;
+  sosFetchedAt: string | null;
+  websiteUrl: string | null;
+  websiteFetchedAt: string | null;
+  portfolioScore: number | null;
+  people: OwnerPerson[];
+  officers: OwnerPerson[];
+  websiteContacts: OwnerPerson[];
+  parcels: Array<{
+    id: string;
+    pin: string;
+    situsAddress: string | null;
+    landUseCode: string | null;
+    propType: string | null;
+    fairMarketVal: number | null;
+    deedDate: string | null;
+    score: number | null;
+  }>;
+  refresh?: {
+    sosOfficers: number;
+    websiteContacts: number;
+    websiteUrl: string | null;
+    errors: string[];
+  };
+}
+
 export interface ParcelDetail {
   id: string;
   pin: string;
@@ -97,6 +145,7 @@ export interface ParcelDetail {
     sosRegisteredAgent?: string | null;
     sosAgentAddress?: string | null;
     sosFetchedAt?: string | null;
+    websiteUrl?: string | null;
     contacts?: Array<{
       id: string;
       name: string | null;

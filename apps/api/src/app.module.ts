@@ -19,6 +19,7 @@ import { EventsModule } from './events/events.module';
 import { AgentsModule } from './agents/agents.module';
 import { ReportsModule } from './reports/reports.module';
 import { HostModule } from './host/host.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
 
@@ -50,6 +51,7 @@ import { buildRedisConnection } from './config/redis.connection';
     AgentsModule,
     ReportsModule,
     HostModule,
+    AnalyticsModule,
     AdminModule,
   ],
   controllers: [HealthController],

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   createLead,
+  explainParcelAi,
   getLeadNeighbors,
   getParcel,
   getParcelOutreach,
   logLeadOutcome,
+  polishOutreachAi,
   snoozeLead,
   updateLeadStatus,
 } from '../lib/api';
@@ -16,6 +18,7 @@ import { ScoreBar } from '../components/ScoreBar';
 import { StatusSelect } from '../components/StatusSelect';
 import { CopyButton } from '../components/CopyButton';
 import { SignalChips } from '../components/SignalChips';
+import { AskAiPanel } from '../components/AskAiPanel';
 import { useToast } from '../state/toast';
 
 export function ParcelDetailPage() {
@@ -29,6 +32,12 @@ export function ParcelDetailPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState<string | null>(null);
+  const [aiExplain, setAiExplain] = useState<{
+    summary: string;
+    callAngle: string;
+    risks: string[];
+  } | null>(null);
   const { push } = useToast();
 
   async function reload() {
@@ -257,11 +266,77 @@ export function ParcelDetailPage() {
             </div>
           ) : null}
 
+          <div className="border-pine/50 mt-10 border-t pt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-display text-xl font-bold text-white">AI call brief</h3>
+              <button
+                type="button"
+                disabled={!!aiBusy}
+                className="border-pine-soft text-mist border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                onClick={() => {
+                  setAiBusy('explain');
+                  void explainParcelAi(parcel.pin)
+                    .then((r) => {
+                      setAiExplain(r);
+                      push('AI brief ready', 'success');
+                    })
+                    .catch((err: unknown) =>
+                      setError(err instanceof Error ? err.message : 'AI explain failed'),
+                    )
+                    .finally(() => setAiBusy(null));
+                }}
+              >
+                {aiBusy === 'explain' ? 'Writing…' : 'Explain with AI'}
+              </button>
+            </div>
+            {aiExplain ? (
+              <div className="mt-3 space-y-2 text-sm text-mist">
+                <p>{aiExplain.summary}</p>
+                <p>
+                  <span className="text-fog">Call angle:</span> {aiExplain.callAngle}
+                </p>
+                {aiExplain.risks.length ? (
+                  <ul className="text-fog list-inside list-disc text-xs">
+                    {aiExplain.risks.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-fog mt-2 text-xs">
+                Plain-English summary from score components + signals (needs LLM_ENABLED).
+              </p>
+            )}
+            <div className="mt-5">
+              <AskAiPanel pin={parcel.pin} compact />
+            </div>
+          </div>
+
           {outreach ? (
             <div className="border-pine/50 mt-10 border-t pt-6">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-display text-xl font-bold text-white">Outreach drafts</h3>
                 <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!!aiBusy}
+                    className="border-pine-soft text-mist border px-2 py-1 text-xs font-semibold disabled:opacity-50"
+                    onClick={() => {
+                      setAiBusy('polish');
+                      void polishOutreachAi(parcel.pin)
+                        .then((r) => {
+                          setOutreach(r);
+                          push('Outreach polished', 'success');
+                        })
+                        .catch((err: unknown) =>
+                          setError(err instanceof Error ? err.message : 'Polish failed'),
+                        )
+                        .finally(() => setAiBusy(null));
+                    }}
+                  >
+                    {aiBusy === 'polish' ? 'Polishing…' : 'Polish with AI'}
+                  </button>
                   <CopyButton text={outreach.callScript} label="Copy call" />
                   <CopyButton
                     text={`${outreach.emailSubject}\n\n${outreach.emailBody}`}

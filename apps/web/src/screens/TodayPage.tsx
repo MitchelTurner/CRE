@@ -6,6 +6,7 @@ import { SIGNAL_LABELS, shortWhyNow } from '../lib/signals';
 import { SignalChips } from '../components/SignalChips';
 import { EmptyState } from '../components/EmptyState';
 import { ScoreBar } from '../components/ScoreBar';
+import { AskAiPanel } from '../components/AskAiPanel';
 import { useToast } from '../state/toast';
 import { downloadDriveListCsv, saveDriveList } from '../lib/driveList';
 
@@ -91,6 +92,8 @@ export function TodayPage() {
           to="/parcels"
         />
       </div>
+
+      <AskAiPanel />
 
       {needsSync ? (
         <EmptyState

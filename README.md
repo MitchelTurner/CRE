@@ -19,6 +19,20 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 | **M7 — Market Report Generator** | Done (HTML; email to agent) |
 | **M8 — Probate Signals** | Done (enrichment + paste-assist + delay config) |
 | **M9 — Host Mode** | Done (invite-list CSV) |
+| **AI analytics** | Done (Ask AI, parcel explain, outreach polish, market narrative — opt-in via Anthropic) |
+
+### AI analytics (opt-in)
+
+Set on Railway:
+
+```bash
+LLM_ENABLED=true
+ANTHROPIC_API_KEY=sk-ant-...
+# optional: LLM_MODEL=claude-sonnet-4-20250514
+# optional: LLM_OPENER_POLISH=true
+```
+
+Surfaces: **Today → Ask AI**, **Admin → Ask AI / AI market narrative**, **Parcel → Explain with AI / Polish with AI**. Answers are grounded in your DB (queue, catalysts, scores, events) — not open-web search. No LinkedIn automation.
 
 ### Event intelligence ethics
 

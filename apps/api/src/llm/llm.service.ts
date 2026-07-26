@@ -8,11 +8,18 @@ export type LlmJsonResult<T> = {
   tokensOut?: number;
 };
 
+export type LlmTextResult = {
+  text: string;
+  usedLlm: boolean;
+  tokensIn?: number;
+  tokensOut?: number;
+};
+
 /**
- * Single Anthropic wrapper for event extraction/classification and paste parsing.
+ * Single Anthropic wrapper for analytics Q&A, event extraction, and draft polish.
  * Kill switch: LLM_ENABLED=false (default) → callers must use heuristics.
  *
- * Ethics: only process public text or paste the agent lawfully possesses.
+ * Ethics: only process public text, DB facts, or paste the agent lawfully possesses.
  */
 @Injectable()
 export class LlmService {
@@ -24,13 +31,41 @@ export class LlmService {
     return this.config.get<boolean>('llmEnabled') === true;
   }
 
+  get status(): { enabled: boolean; hasKey: boolean; model: string } {
+    return {
+      enabled: this.enabled,
+      hasKey: Boolean((this.config.get<string>('anthropicApiKey') ?? '').trim()),
+      model: this.config.get<string>('llmModel') ?? 'claude-sonnet-4-20250514',
+    };
+  }
+
   async completeJson<T>(options: {
     system: string;
     user: string;
     schemaHint: string;
+    maxTokens?: number;
   }): Promise<LlmJsonResult<T>> {
+    const text = await this.completeText({
+      system: `${options.system}\n\nReturn ONLY valid JSON matching: ${options.schemaHint}`,
+      user: options.user,
+      maxTokens: options.maxTokens ?? 4096,
+    });
+    const data = JSON.parse(extractJson(text.text)) as T;
+    return {
+      data,
+      usedLlm: true,
+      tokensIn: text.tokensIn,
+      tokensOut: text.tokensOut,
+    };
+  }
+
+  async completeText(options: {
+    system: string;
+    user: string;
+    maxTokens?: number;
+  }): Promise<LlmTextResult> {
     if (!this.enabled) {
-      throw new Error('LLM_ENABLED is false');
+      throw new Error('LLM_ENABLED is false — set LLM_ENABLED=true and ANTHROPIC_API_KEY on Railway');
     }
     const apiKey = this.config.get<string>('anthropicApiKey') ?? '';
     if (!apiKey) {
@@ -51,8 +86,8 @@ export class LlmService {
           },
           body: JSON.stringify({
             model,
-            max_tokens: 4096,
-            system: `${options.system}\n\nReturn ONLY valid JSON matching: ${options.schemaHint}`,
+            max_tokens: options.maxTokens ?? 2048,
+            system: options.system,
             messages: [{ role: 'user', content: options.user }],
           }),
         });
@@ -64,13 +99,11 @@ export class LlmService {
           usage?: { input_tokens?: number; output_tokens?: number };
         };
         const text = body.content?.find((c) => c.type === 'text')?.text ?? '';
-        const jsonText = extractJson(text);
-        const data = JSON.parse(jsonText) as T;
         this.logger.log(
           `LLM ok model=${model} in=${body.usage?.input_tokens ?? '?'} out=${body.usage?.output_tokens ?? '?'}`,
         );
         return {
-          data,
+          text: text.trim(),
           usedLlm: true,
           tokensIn: body.usage?.input_tokens,
           tokensOut: body.usage?.output_tokens,

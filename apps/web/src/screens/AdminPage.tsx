@@ -14,9 +14,11 @@ import {
   assignSubmarkets,
   pasteLiens,
   pasteBrokers,
+  generateMarketNarrative,
 } from '../lib/api';
 import type { DigestPreview, SyncRun } from '../lib/types';
 import { formatDate } from '../lib/format';
+import { AskAiPanel } from '../components/AskAiPanel';
 import { useToast } from '../state/toast';
 
 export function AdminPage() {
@@ -31,6 +33,12 @@ export function AdminPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [narrative, setNarrative] = useState<{
+    headline: string;
+    narrative: string;
+    opportunities: string[];
+    watchouts: string[];
+  } | null>(null);
   const { push } = useToast();
 
   async function refreshRuns() {
@@ -147,6 +155,20 @@ export function AdminPage() {
         <button
           type="button"
           disabled={!!busy}
+          onClick={() =>
+            void run('AI market narrative', async () => {
+              const n = await generateMarketNarrative();
+              setNarrative(n);
+              return { note: n.headline };
+            })
+          }
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'AI market narrative' ? 'Writing…' : 'AI market narrative'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
           onClick={() => void run('Submarkets', () => assignSubmarkets())}
           className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
@@ -235,6 +257,37 @@ export function AdminPage() {
 
       {message ? <p className="text-moss mt-4 text-sm">{message}</p> : null}
       {error ? <p className="text-danger mt-4 text-sm">{error}</p> : null}
+
+      <div className="mt-8">
+        <AskAiPanel />
+      </div>
+
+      {narrative ? (
+        <section className="border-pine/40 mt-8 space-y-3 border p-5">
+          <h3 className="font-display text-xl font-bold text-white">{narrative.headline}</h3>
+          <p className="whitespace-pre-wrap text-sm text-mist">{narrative.narrative}</p>
+          {narrative.opportunities.length ? (
+            <div>
+              <p className="text-fog text-xs tracking-[0.16em] uppercase">Opportunities</p>
+              <ul className="text-mist mt-1 list-inside list-disc text-sm">
+                {narrative.opportunities.map((o) => (
+                  <li key={o}>{o}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {narrative.watchouts.length ? (
+            <div>
+              <p className="text-fog text-xs tracking-[0.16em] uppercase">Watch-outs</p>
+              <ul className="text-mist mt-1 list-inside list-disc text-sm">
+                {narrative.watchouts.map((o) => (
+                  <li key={o}>{o}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {runs.some((r) => r.status === 'running') ? (
         <p className="text-brass mt-4 text-sm">

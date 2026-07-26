@@ -41,6 +41,7 @@ const API_PREFIXES = [
   '/events',
   '/agents',
   '/reports',
+  '/analytics',
   '/health',
 ];
 

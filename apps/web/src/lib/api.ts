@@ -372,6 +372,58 @@ export function pasteBrokers(text: string) {
   });
 }
 
+export function getAnalyticsStatus() {
+  return request<{
+    enabled: boolean;
+    hasKey: boolean;
+    model: string;
+    ready: boolean;
+    note: string;
+  }>('/analytics/status');
+}
+
+export function askAnalytics(question: string, pin?: string) {
+  return request<{
+    answer: string;
+    suggestedActions: string[];
+    citedPins: string[];
+    usedLlm: boolean;
+    model?: string;
+  }>('/analytics/ask', {
+    method: 'POST',
+    body: JSON.stringify({ question, pin }),
+  });
+}
+
+export function explainParcelAi(pin: string) {
+  return request<{
+    pin: string;
+    summary: string;
+    callAngle: string;
+    risks: string[];
+  }>(`/analytics/parcels/${encodeURIComponent(pin)}/explain`, { method: 'POST' });
+}
+
+export function polishOutreachAi(pin: string, tone?: string) {
+  return request<
+    OutreachDrafts & {
+      usedLlm: boolean;
+    }
+  >(`/analytics/parcels/${encodeURIComponent(pin)}/polish-outreach`, {
+    method: 'POST',
+    body: JSON.stringify({ tone }),
+  });
+}
+
+export function generateMarketNarrative() {
+  return request<{
+    headline: string;
+    narrative: string;
+    opportunities: string[];
+    watchouts: string[];
+  }>('/analytics/market-narrative', { method: 'POST' });
+}
+
 export async function verifyToken(): Promise<boolean> {
   const token = getToken();
   if (!token) return false;

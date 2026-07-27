@@ -154,6 +154,45 @@ export function AdminPage() {
         >
           {busy === 'Tax sync' ? 'Enqueueing…' : 'Tax delinquency sync'}
         </button>
+      </div>
+
+      <div className="event-card mt-4">
+        <p className="text-sm font-semibold text-white">Greenville ROD account (required for deed watch)</p>
+        <p className="text-fog mt-1 text-xs">
+          Free GovOS Cloud Search signup. After you register and confirm email, put that email/password in
+          Railway as <span className="text-mist">ROD_EMAIL</span> /{' '}
+          <span className="text-mist">ROD_PASSWORD</span> and set{' '}
+          <span className="text-mist">ROD_SCRAPER_ENABLED=true</span>.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href="https://greenville.sc.publicsearch.us/"
+            target="_blank"
+            rel="noreferrer"
+            className="btn-primary !text-xs"
+          >
+            Open ROD Cloud Search → Register
+          </a>
+          <a
+            href="https://www.greenvillecounty.org/ROD/pdf/NewCloudSearchInstructions.pdf"
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost !text-xs"
+          >
+            Signup instructions (PDF)
+          </a>
+          <a
+            href="https://www.greenvillecounty.org/rod/"
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost !text-xs"
+          >
+            County ROD home
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
           disabled={!!busy}

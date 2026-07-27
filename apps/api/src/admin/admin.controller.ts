@@ -96,7 +96,7 @@ export class AdminController {
       enqueued: true,
       jobId: job.id,
       jobName: JOBS.ROD_WATCH,
-      note: 'ROD deed/mortgage watcher queued. Needs ROD_SCRAPER_ENABLED=true + credentials.',
+      note: 'ROD deed/mortgage watcher queued. Needs ROD_SCRAPER_ENABLED=true + credentials (sign up free at greenville.sc.publicsearch.us → Register).',
     };
   }
 

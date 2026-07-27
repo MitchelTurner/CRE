@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { SignalService } from '../enrichment/signal.service';
 import { EnrichmentService } from '../enrichment/enrichment.service';
 import { normalizeOwnerName } from '@cre/shared';
+import { getRodClientStatus } from '../clients/rod.client';
 
 @Controller('admin')
 @UseGuards(ApiTokenGuard)
@@ -80,8 +81,14 @@ export class AdminController {
     };
   }
 
+  @Get('rod/status')
+  rodStatus() {
+    return getRodClientStatus();
+  }
+
   @Post('rod/watch')
   async enqueueRodWatch() {
+    const status = getRodClientStatus();
     const job = await this.enrichmentQueue.add(
       JOBS.ROD_WATCH,
       { reason: 'manual' },
@@ -96,7 +103,10 @@ export class AdminController {
       enqueued: true,
       jobId: job.id,
       jobName: JOBS.ROD_WATCH,
-      note: 'ROD deed/mortgage watcher queued. Needs ROD_SCRAPER_ENABLED=true + credentials (sign up free at greenville.sc.publicsearch.us → Register).',
+      rod: status,
+      note: status.ready
+        ? 'ROD deed/mortgage watcher queued — watch Recent sync runs for rod_watch success/failed.'
+        : `ROD watcher queued, but it will no-op: ${status.reason}`,
     };
   }
 

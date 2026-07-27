@@ -5,6 +5,7 @@
  * Platform is login-walled; implementation is deliberately conservative with
  * caching and rate limits. Swap internals if GovOS endpoints change.
  */
+import { cleanEnvSecret, parseEnvFlag } from '../config/env-flags';
 export interface RodDeedRecord {
   recordedAt: Date;
   grantor: string;
@@ -241,15 +242,53 @@ export class GovOsRodClient implements RodClient {
   }
 }
 
+export type RodClientStatus = {
+  ready: boolean;
+  enabled: boolean;
+  credentialsPresent: boolean;
+  reason: string;
+};
+
+/** Inspect Railway/env readiness without revealing secrets. */
+export function getRodClientStatus(env: NodeJS.ProcessEnv = process.env): RodClientStatus {
+  const enabled = parseEnvFlag(env.ROD_SCRAPER_ENABLED) === true;
+  const email = cleanEnvSecret(env.ROD_EMAIL || env.ROD_USERNAME);
+  const password = cleanEnvSecret(env.ROD_PASSWORD);
+  const credentialsPresent = Boolean(email && password);
+
+  if (!enabled) {
+    return {
+      ready: false,
+      enabled: false,
+      credentialsPresent,
+      reason:
+        'ROD_SCRAPER_ENABLED is not true in Railway. Set ROD_SCRAPER_ENABLED=true and redeploy.',
+    };
+  }
+  if (!credentialsPresent) {
+    return {
+      ready: false,
+      enabled: true,
+      credentialsPresent: false,
+      reason:
+        'ROD_EMAIL / ROD_PASSWORD missing in Railway. Add the GovOS Cloud Search login and redeploy.',
+    };
+  }
+  return {
+    ready: true,
+    enabled: true,
+    credentialsPresent: true,
+    reason: 'ROD scraper enabled with credentials — watcher will attempt Cloud Search login.',
+  };
+}
+
 export function createRodClient(env: NodeJS.ProcessEnv = process.env): RodClient {
-  if (env.ROD_SCRAPER_ENABLED !== 'true') return new DisabledRodClient();
-  const email = (env.ROD_EMAIL || env.ROD_USERNAME || '').trim();
-  const password = (env.ROD_PASSWORD || '').trim();
-  if (!email || !password) return new DisabledRodClient();
+  const status = getRodClientStatus(env);
+  if (!status.ready) return new DisabledRodClient();
   return new GovOsRodClient({
     baseUrl: (env.ROD_BASE_URL || 'https://greenville.sc.publicsearch.us').replace(/\/$/, ''),
-    email,
-    password,
+    email: cleanEnvSecret(env.ROD_EMAIL || env.ROD_USERNAME),
+    password: cleanEnvSecret(env.ROD_PASSWORD),
     minDelayMs: Number(env.ROD_MIN_DELAY_MS || 750),
   });
 }

@@ -6,6 +6,7 @@ import {
   enqueueTaxSync,
   enqueueSync,
   getInventory,
+  getRodStatus,
   listSyncRuns,
   previewDigest,
   reactivateParcels,
@@ -18,6 +19,7 @@ import {
   pasteBrokers,
   generateMarketNarrative,
 } from '../lib/api';
+import type { RodStatus } from '../lib/api';
 import type { DigestPreview, SyncRun } from '../lib/types';
 import { formatDate } from '../lib/format';
 import { AskAiPanel } from '../components/AskAiPanel';
@@ -41,12 +43,18 @@ export function AdminPage() {
     opportunities: string[];
     watchouts: string[];
   } | null>(null);
+  const [rodStatus, setRodStatus] = useState<RodStatus | null>(null);
   const { push } = useToast();
 
   async function refreshRuns() {
-    const [data, inv] = await Promise.all([listSyncRuns(), getInventory()]);
+    const [data, inv, rod] = await Promise.all([
+      listSyncRuns(),
+      getInventory(),
+      getRodStatus().catch(() => null),
+    ]);
     setRuns(data);
     setInventory(inv);
+    if (rod) setRodStatus(rod);
   }
 
   useEffect(() => {
@@ -158,11 +166,18 @@ export function AdminPage() {
 
       <div className="event-card mt-4">
         <p className="text-sm font-semibold text-white">Greenville ROD account (required for deed watch)</p>
+        {rodStatus ? (
+          <p
+            className={`mt-1 text-xs font-semibold ${rodStatus.ready ? 'text-moss' : 'text-amber-300'}`}
+          >
+            Railway status: {rodStatus.ready ? 'ready' : 'not ready'} — {rodStatus.reason}
+          </p>
+        ) : null}
         <p className="text-fog mt-1 text-xs">
           Free GovOS Cloud Search signup. After you register and confirm email, put that email/password in
           Railway as <span className="text-mist">ROD_EMAIL</span> /{' '}
           <span className="text-mist">ROD_PASSWORD</span> and set{' '}
-          <span className="text-mist">ROD_SCRAPER_ENABLED=true</span>.
+          <span className="text-mist">ROD_SCRAPER_ENABLED=true</span>, then redeploy.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <a

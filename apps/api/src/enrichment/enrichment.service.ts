@@ -8,7 +8,7 @@ import {
   normalizeOwnerName,
 } from '@cre/shared';
 import { createSosClient, isDissolvedStatus, type SosClient } from '../clients/sos.client';
-import { createRodClient, type RodClient } from '../clients/rod.client';
+import { createRodClient, getRodClientStatus, type RodClient } from '../clients/rod.client';
 import { createSkipTraceClient, type SkipTraceClient } from '../clients/skiptrace.client';
 import { createDistressClient, type DistressClient } from '../clients/distress.client';
 import { createPlanningClient, type PlanningClient } from '../clients/planning.client';
@@ -1032,10 +1032,25 @@ export class EnrichmentService {
 
   /** Dedicated ROD deed/mortgage watcher (cron + admin). */
   async runRodWatch(): Promise<Record<string, number>> {
+    const rodStatus = getRodClientStatus();
     const syncRun = await this.prisma.syncRun.create({
       data: { source: 'rod_watch', status: 'running' },
     });
     try {
+      if (!rodStatus.ready) {
+        await this.prisma.syncRun.update({
+          where: { id: syncRun.id },
+          data: {
+            status: 'failed',
+            finishedAt: new Date(),
+            error: rodStatus.reason,
+            recordsSeen: 0,
+            recordsUpserted: 0,
+          },
+        });
+        this.logger.warn(`ROD watch skipped: ${rodStatus.reason}`);
+        return { recentDeeds: 0, mortgages: 0, sos: 0, skipped: 1 };
+      }
       const deeds = await this.monitorRecentDeeds();
       const mortgages = await this.enrichTopLeads(40);
       const totals = {

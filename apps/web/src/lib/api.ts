@@ -300,8 +300,24 @@ export function enqueueEnrich(topN = 25) {
   );
 }
 
+export type RodStatus = {
+  ready: boolean;
+  enabled: boolean;
+  credentialsPresent: boolean;
+  reason: string;
+};
+
+export function getRodStatus() {
+  return request<RodStatus>('/admin/rod/status');
+}
+
 export function enqueueRodWatch() {
-  return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/rod/watch', {
+  return request<{
+    enqueued: boolean;
+    jobId: string;
+    note?: string;
+    rod?: RodStatus;
+  }>('/admin/rod/watch', {
     method: 'POST',
   });
 }

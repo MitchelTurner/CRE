@@ -57,6 +57,19 @@ export class EventsController {
     return this.events.pasteAttendees(id, text, role ?? 'attendee');
   }
 
+  @Post(':id/attendees/ocr')
+  ocr(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      imageBase64: string;
+      mediaType?: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+      role?: string;
+    },
+  ) {
+    return this.events.ocrAttendees(id, body);
+  }
+
   @Post(':id/attendees/:personId/met')
   markMet(
     @Param('id') id: string,

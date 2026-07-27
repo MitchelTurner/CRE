@@ -23,8 +23,10 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { OwnersModule } from './owners/owners.module';
 import { ProgressModule } from './progress/progress.module';
 import { NotesModule } from './notes/notes.module';
+import { DrivebyModule } from './driveby/driveby.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
+
 
 
 @Module({
@@ -59,8 +61,10 @@ import { buildRedisConnection } from './config/redis.connection';
     OwnersModule,
     ProgressModule,
     NotesModule,
+    DrivebyModule,
     AdminModule,
   ],
+
 
   controllers: [HealthController],
 })

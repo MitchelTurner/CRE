@@ -80,6 +80,46 @@ export class AdminController {
     };
   }
 
+  @Post('rod/watch')
+  async enqueueRodWatch() {
+    const job = await this.enrichmentQueue.add(
+      JOBS.ROD_WATCH,
+      { reason: 'manual' },
+      {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: 50,
+        removeOnFail: 50,
+      },
+    );
+    return {
+      enqueued: true,
+      jobId: job.id,
+      jobName: JOBS.ROD_WATCH,
+      note: 'ROD deed/mortgage watcher queued. Needs ROD_SCRAPER_ENABLED=true + credentials.',
+    };
+  }
+
+  @Post('tax/sync')
+  async enqueueTaxSync() {
+    const job = await this.enrichmentQueue.add(
+      JOBS.TAX_DELINQUENCY_SYNC,
+      { reason: 'manual' },
+      {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: 50,
+        removeOnFail: 50,
+      },
+    );
+    return {
+      enqueued: true,
+      jobId: job.id,
+      jobName: JOBS.TAX_DELINQUENCY_SYNC,
+      note: 'Tax delinquency + distress list sync queued.',
+    };
+  }
+
   @Post('tune-weights')
   tuneWeights() {
     return this.feedbackTuning.tuneFromFeedback(5);

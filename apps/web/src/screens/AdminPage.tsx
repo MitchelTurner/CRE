@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   enqueueEnrich,
   enqueueQuarterlyReport,
+  enqueueRodWatch,
+  enqueueTaxSync,
   enqueueSync,
   getInventory,
   listSyncRuns,
@@ -135,6 +137,22 @@ export function AdminPage() {
           className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           {busy === 'Enrich' ? 'Enqueueing…' : 'Run enrichment'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => void run('ROD watch', () => enqueueRodWatch())}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'ROD watch' ? 'Enqueueing…' : 'ROD deed watch'}
+        </button>
+        <button
+          type="button"
+          disabled={!!busy}
+          onClick={() => void run('Tax sync', () => enqueueTaxSync())}
+          className="border-pine-soft text-mist hover:border-moss border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {busy === 'Tax sync' ? 'Enqueueing…' : 'Tax delinquency sync'}
         </button>
         <button
           type="button"

@@ -13,6 +13,8 @@ export const XP_REWARDS: Record<string, number> = {
   person_met: 40,
   note_created: 8,
   hitl_resolved: 25,
+  roster_ocr: 20,
+  drive_by: 25,
 };
 
 export type BadgeDef = {
@@ -72,6 +74,19 @@ export const BADGES: BadgeDef[] = [
     description: 'You wrote things down.',
     how: 'Create 5 notes',
   },
+  {
+    id: 'field_agent',
+    name: 'Field Agent',
+    description: 'You logged site visits.',
+    how: 'Log 5 drive-bys',
+  },
+  {
+    id: 'roster_runner',
+    name: 'Roster Runner',
+    description: 'You digitized an event list.',
+    how: 'OCR 1 event roster',
+  },
+
   {
     id: 'closer',
     name: 'Closer',

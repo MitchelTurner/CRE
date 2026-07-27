@@ -4,6 +4,7 @@ import {
   generateEventBrief,
   listEvents,
   markEventAttendeeMet,
+  ocrEventAttendees,
   pasteEventAttendees,
   pasteEvents,
   syncEvents,
@@ -16,7 +17,7 @@ import { announceAward } from '../lib/awards';
 import { NotesPanel } from '../components/NotesPanel';
 
 type FilterId = 'upcoming' | 'soon' | 'high' | 'attended' | 'all';
-type PanelId = 'people' | 'notes' | 'paste' | null;
+type PanelId = 'people' | 'notes' | 'paste' | 'ocr' | null;
 
 const FILTERS: Array<{ id: FilterId; label: string }> = [
   { id: 'upcoming', label: 'Upcoming' },
@@ -455,6 +456,7 @@ export function EventsPage() {
                         [
                           ['people', 'People'],
                           ['paste', 'Paste people'],
+                          ['ocr', 'OCR roster'],
                           ['notes', 'Notes'],
                         ] as const
                       ).map(([id, label]) => (
@@ -578,6 +580,59 @@ export function EventsPage() {
                         >
                           Link people
                         </button>
+                      </div>
+                    ) : null}
+
+                    {panel === 'ocr' ? (
+                      <div>
+                        <p className="text-fog text-xs">
+                          Photo a printed roster or screenshot you lawfully have. AI extracts names
+                          (+20 XP). Needs LLM enabled. No LinkedIn scrape.
+                        </p>
+                        <label className="btn-ghost mt-3 inline-flex cursor-pointer">
+                          {busy === `ocr-${ev.id}` ? 'Reading…' : 'Choose roster photo'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            disabled={busy === `ocr-${ev.id}`}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setBusy(`ocr-${ev.id}`);
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                const dataUrl = String(reader.result || '');
+                                const imageBase64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
+                                const mediaType = (
+                                  file.type === 'image/png' ||
+                                  file.type === 'image/webp' ||
+                                  file.type === 'image/gif'
+                                    ? file.type
+                                    : 'image/jpeg'
+                                ) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+                                void ocrEventAttendees(ev.id, { imageBase64, mediaType })
+                                  .then((r) => {
+                                    announceAward(
+                                      push,
+                                      r.award,
+                                      `Linked ${r.linked} from roster`,
+                                    );
+                                    setPanel('people');
+                                    return reload();
+                                  })
+                                  .catch((err: unknown) =>
+                                    setError(
+                                      err instanceof Error ? err.message : 'OCR failed',
+                                    ),
+                                  )
+                                  .finally(() => setBusy(null));
+                              };
+                              reader.readAsDataURL(file);
+                            }}
+                          />
+                        </label>
                       </div>
                     ) : null}
 

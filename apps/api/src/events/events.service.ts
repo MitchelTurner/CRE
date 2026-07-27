@@ -6,6 +6,8 @@ import { classifyEventHeuristic } from './clients/classify-event';
 import type { RawEventDraft } from './clients/event-source.types';
 import { MatchingService } from './matching.service';
 import { ProgressService } from '../progress/progress.service';
+import { LlmService } from '../llm/llm.service';
+
 
 const STATUSES = new Set(['new', 'approved', 'hidden', 'attended']);
 const DENSITIES = new Set(['high', 'medium', 'low']);
@@ -16,7 +18,9 @@ export class EventsService {
     private readonly prisma: PrismaService,
     private readonly matching: MatchingService,
     private readonly progress: ProgressService,
+    private readonly llm: LlmService,
   ) {}
+
 
 
   async list(query: { from?: string; density?: string; status?: string }) {
@@ -268,7 +272,7 @@ export class EventsService {
     return event;
   }
 
-  async pasteAttendees(eventId: string, text: string, role = 'attendee') {
+  async pasteAttendees(eventId: string, text: string, role = 'attendee', source = 'paste') {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) throw new NotFoundException(`Event ${eventId} not found`);
     const rows = this.matching.parsePasteLines(text);
@@ -278,7 +282,7 @@ export class EventsService {
         nameRaw: row.nameRaw,
         company: row.company,
         title: row.title,
-        source: 'paste',
+        source,
       });
       await this.prisma.eventAttendee.upsert({
         where: { eventId_personId: { eventId, personId: person.id } },
@@ -289,6 +293,52 @@ export class EventsService {
       linked += 1;
     }
     return { linked };
+  }
+
+  /**
+   * OCR a roster photo (agent-captured) via LLM vision → same paste pipeline.
+   * No LinkedIn scrape — only images the agent lawfully has.
+   */
+  async ocrAttendees(
+    eventId: string,
+    input: {
+      imageBase64: string;
+      mediaType?: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+      role?: string;
+    },
+  ) {
+    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) throw new NotFoundException(`Event ${eventId} not found`);
+
+    const vision = await this.llm.completeVisionText({
+      system:
+        'You extract attendee names from event roster photos or screenshots. Return plain text only — one person per line as "Name, Company, Title" when available. Skip headers, page numbers, and duplicates. Do not invent people.',
+      user: `Extract every readable attendee from this roster for "${event.name}". One line per person.`,
+      imageBase64: input.imageBase64,
+      mediaType: input.mediaType ?? 'image/jpeg',
+      maxTokens: 4096,
+    });
+
+    const linked = await this.pasteAttendees(
+      eventId,
+      vision.text,
+      input.role ?? 'attendee',
+      'ocr_roster',
+    );
+
+    const award = await this.progress.award({
+      action: 'roster_ocr',
+      entityType: 'event',
+      entityId: `${eventId}:${Date.now()}`,
+      meta: { linked: linked.linked },
+    });
+
+    return {
+      ...linked,
+      extractedText: vision.text.slice(0, 4000),
+      usedLlm: true,
+      award,
+    };
   }
 
   async markMet(eventId: string, personId: string, met = true) {

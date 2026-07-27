@@ -12,6 +12,8 @@ export const JOBS = {
   PARCELS_DAILY_SYNC: 'parcels.dailySync',
   SCORING_RUN_ALL: 'scoring.runAll',
   ENRICHMENT_PASS: 'enrichment.pass',
+  ROD_WATCH: 'rod.watch',
+  TAX_DELINQUENCY_SYNC: 'tax.delinquencySync',
   DIGEST_WEEKLY: 'digest.weekly',
   EVENTS_SYNC_ALL: 'events.syncAll',
   EVENTS_AUTO_BRIEFS: 'events.autoBriefs',

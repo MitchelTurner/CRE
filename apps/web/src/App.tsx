@@ -16,6 +16,8 @@ import { AgentsPage } from './screens/AgentsPage';
 import { OwnerDetailPage } from './screens/OwnerDetailPage';
 import { QuestsPage } from './screens/QuestsPage';
 import { NotesPage } from './screens/NotesPage';
+import { DriveByPage } from './screens/DriveByPage';
+
 
 
 
@@ -49,7 +51,9 @@ export default function App() {
             <Route index element={<TodayPage />} />
             <Route path="quests" element={<QuestsPage />} />
             <Route path="notes" element={<NotesPage />} />
+            <Route path="drive-by" element={<DriveByPage />} />
             <Route path="parcels" element={<ParcelsPage />} />
+
             <Route path="parcels/:pin" element={<ParcelDetailPage />} />
             <Route path="owners/:id" element={<OwnerDetailPage />} />
             <Route path="map" element={<MapPage />} />

@@ -16,7 +16,9 @@ export const SIGNAL_LABELS: Record<string, string> = {
   judgment_lien: 'Lien',
   vacancy_proxy: 'Vacancy',
   property_scrape: 'Property scrape',
+  drive_by: 'Drive-by',
 };
+
 
 export function formatSignalPayload(type: string, payload: unknown): string {
   if (!payload || typeof payload !== 'object') return '';

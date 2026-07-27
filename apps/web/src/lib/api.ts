@@ -300,6 +300,95 @@ export function enqueueEnrich(topN = 25) {
   );
 }
 
+export function enqueueRodWatch() {
+  return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/rod/watch', {
+    method: 'POST',
+  });
+}
+
+export function enqueueTaxSync() {
+  return request<{ enqueued: boolean; jobId: string; note?: string }>('/admin/tax/sync', {
+    method: 'POST',
+  });
+}
+
+export function ocrEventAttendees(
+  id: string,
+  body: {
+    imageBase64: string;
+    mediaType?: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+    role?: string;
+  },
+) {
+  return request<{
+    linked: number;
+    extractedText?: string;
+    usedLlm?: boolean;
+    award?: AwardResult | null;
+  }>(`/events/${encodeURIComponent(id)}/attendees/ocr`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function listDriveBys(limit = 50) {
+  return request<{
+    items: Array<{
+      id: string;
+      latitude: number;
+      longitude: number;
+      note: string | null;
+      tags: string[];
+      distanceM: number | null;
+      hasImage: boolean;
+      createdAt: string;
+      parcel: {
+        id: string;
+        pin: string;
+        situsAddress: string | null;
+        score: number | null;
+      } | null;
+    }>;
+  }>(`/drive-by?limit=${limit}`);
+}
+
+export function nearestDriveByParcel(lat: number, lng: number, maxMeters = 250) {
+  return request<{
+    nearest: {
+      id: string;
+      pin: string;
+      situsAddress: string | null;
+      distanceM: number;
+    } | null;
+  }>(`/drive-by/nearest?lat=${lat}&lng=${lng}&maxMeters=${maxMeters}`);
+}
+
+export function createDriveBy(body: {
+  latitude: number;
+  longitude: number;
+  note?: string;
+  tags?: string[];
+  imageBase64?: string;
+  mediaType?: string;
+  pin?: string;
+}) {
+  return request<{
+    id: string;
+    pin: string | null;
+    parcelId: string | null;
+    distanceM: number | null;
+    tags: string[];
+    hasImage: boolean;
+    note: string | null;
+    createdAt: string;
+    award?: AwardResult | null;
+  }>('/drive-by', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+
 export function tuneWeights() {
   return request<{ samples: number; adjusted: Record<string, number> }>(
     '/admin/tune-weights',

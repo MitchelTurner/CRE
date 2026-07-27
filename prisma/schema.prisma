@@ -34,7 +34,9 @@ model Parcel {
   enrichmentReviews EnrichmentReview[]
   saleComps        SaleComp[]
   notes            Note[]
+  fieldCaptures    FieldCapture[]
   firstSeenAt      DateTime           @default(now())
+
   lastSyncedAt     DateTime           @updatedAt
   isCommercial     Boolean            @default(false)
   isActive         Boolean            @default(true)
@@ -389,3 +391,26 @@ model Note {
   @@index([leadId])
   @@index([eventId])
 }
+
+/// Drive-by / field capture (GPS + optional photo + note).
+model FieldCapture {
+  id          String   @id @default(cuid())
+  parcelId    String?
+  latitude    Float
+  longitude   Float
+  note        String?
+  /// vacancy | for_lease | deferred_maint | other
+  tags        String[] @default([])
+  imageMime   String?
+  /// Small JPEG/WebP base64 (no data: prefix). Keep under ~800KB.
+  imageBase64 String?
+  distanceM   Float?
+  createdAt   DateTime @default(now())
+
+  parcel Parcel? @relation(fields: [parcelId], references: [id], onDelete: SetNull)
+
+  @@index([parcelId, createdAt])
+  @@index([createdAt])
+  @@index([latitude, longitude])
+}
+

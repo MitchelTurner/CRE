@@ -43,6 +43,30 @@ export class JobsScheduler implements OnApplicationBootstrap {
         },
       );
 
+      // ROD deed/mortgage watcher — twice daily
+      await this.enrichmentQueue.add(
+        JOBS.ROD_WATCH,
+        { reason: 'cron' },
+        {
+          jobId: 'cron-rod-watch',
+          repeat: { pattern: '30 7,15 * * *', tz: 'America/New_York' },
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+
+      // Tax delinquency + distress lists — daily mid-morning
+      await this.enrichmentQueue.add(
+        JOBS.TAX_DELINQUENCY_SYNC,
+        { reason: 'cron' },
+        {
+          jobId: 'cron-tax-delinquency',
+          repeat: { pattern: '0 9 * * *', tz: 'America/New_York' },
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+
       await this.digestQueue.add(
         JOBS.DIGEST_WEEKLY,
         { reason: 'cron' },
@@ -91,7 +115,7 @@ export class JobsScheduler implements OnApplicationBootstrap {
       );
 
       this.logger.log(
-        'Registered crons: parcels, enrichment, digest, events.syncAll (Sun 18:00 ET), events.autoBriefs (daily), reports.quarterly',
+        'Registered crons: parcels, enrichment, rod.watch (7:30/15:30 ET), tax.delinquency (9:00 ET), digest, events, reports',
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

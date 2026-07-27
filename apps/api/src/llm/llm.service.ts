@@ -147,6 +147,78 @@ export class LlmService {
     }
     throw lastErr ?? new Error('LLM failed');
   }
+
+  /**
+   * Vision OCR / extraction. imageBase64 without data: prefix.
+   * Ethics: only images the agent lawfully possesses (event roster photos, etc.).
+   */
+  async completeVisionText(options: {
+    system: string;
+    user: string;
+    imageBase64: string;
+    mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+    maxTokens?: number;
+  }): Promise<LlmTextResult> {
+    if (!this.enabled) {
+      throw new Error(
+        this.status.reason ||
+          'LLM off — set LLM_ENABLED=true and ANTHROPIC_API_KEY for roster OCR',
+      );
+    }
+    const apiKey = cleanEnvSecret(
+      this.config.get<string>('anthropicApiKey') || process.env.ANTHROPIC_API_KEY,
+    );
+    if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set');
+
+    const model = this.config.get<string>('llmModel') ?? 'claude-sonnet-4-6';
+    const raw = options.imageBase64.replace(/^data:[^;]+;base64,/, '').trim();
+    if (!raw || raw.length < 80) throw new Error('imageBase64 missing or too small');
+    if (raw.length > 1_800_000) throw new Error('image too large — use a smaller photo');
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: options.maxTokens ?? 4096,
+        system: options.system,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: options.mediaType,
+                  data: raw,
+                },
+              },
+              { type: 'text', text: options.user },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Anthropic vision HTTP ${res.status}: ${await res.text()}`);
+    }
+    const body = (await res.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+      usage?: { input_tokens?: number; output_tokens?: number };
+    };
+    const text = body.content?.find((c) => c.type === 'text')?.text ?? '';
+    return {
+      text: text.trim(),
+      usedLlm: true,
+      tokensIn: body.usage?.input_tokens,
+      tokensOut: body.usage?.output_tokens,
+    };
+  }
 }
 
 function extractJson(text: string): string {

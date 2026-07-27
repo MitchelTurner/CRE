@@ -45,8 +45,10 @@ const API_PREFIXES = [
   '/owners',
   '/progress',
   '/notes',
+  '/drive-by',
   '/health',
 ];
+
 
 
 

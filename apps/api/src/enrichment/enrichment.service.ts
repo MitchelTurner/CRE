@@ -1030,7 +1030,76 @@ export class EnrichmentService {
     return n;
   }
 
+  /** Dedicated ROD deed/mortgage watcher (cron + admin). */
+  async runRodWatch(): Promise<Record<string, number>> {
+    const syncRun = await this.prisma.syncRun.create({
+      data: { source: 'rod_watch', status: 'running' },
+    });
+    try {
+      const deeds = await this.monitorRecentDeeds();
+      const mortgages = await this.enrichTopLeads(40);
+      const totals = {
+        recentDeeds: deeds,
+        mortgages: mortgages.mortgages,
+        sos: mortgages.sos,
+      };
+      await this.prisma.syncRun.update({
+        where: { id: syncRun.id },
+        data: {
+          status: 'success',
+          finishedAt: new Date(),
+          recordsSeen: deeds + mortgages.mortgages,
+          recordsUpserted: Object.values(totals).reduce((a, b) => a + b, 0),
+        },
+      });
+      this.logger.log(`ROD watch complete: ${JSON.stringify(totals)}`);
+      return totals;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.syncRun.update({
+        where: { id: syncRun.id },
+        data: { status: 'failed', finishedAt: new Date(), error: message },
+      });
+      throw err;
+    }
+  }
+
+  /** Tax delinquency signals + distress list sync (cron + admin). */
+  async runTaxDelinquencySync(): Promise<Record<string, number>> {
+    const syncRun = await this.prisma.syncRun.create({
+      data: { source: 'tax_delinquency_sync', status: 'running' },
+    });
+    try {
+      const tax = await this.refreshTaxSignalsFromParcels();
+      const distress = await this.refreshDistressLists();
+      const totals = {
+        taxSignals: tax,
+        taxSale: distress.taxSale,
+        foreclosure: distress.foreclosure,
+      };
+      await this.prisma.syncRun.update({
+        where: { id: syncRun.id },
+        data: {
+          status: 'success',
+          finishedAt: new Date(),
+          recordsSeen: tax + distress.taxSale + distress.foreclosure,
+          recordsUpserted: Object.values(totals).reduce((a, b) => a + b, 0),
+        },
+      });
+      this.logger.log(`Tax delinquency sync complete: ${JSON.stringify(totals)}`);
+      return totals;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.syncRun.update({
+        where: { id: syncRun.id },
+        data: { status: 'failed', finishedAt: new Date(), error: message },
+      });
+      throw err;
+    }
+  }
+
   async runFullEnrichmentPass(topN = 25): Promise<Record<string, number>> {
+
     const syncRun = await this.prisma.syncRun.create({
       data: { source: 'enrichment_pass', status: 'running' },
     });

@@ -234,10 +234,13 @@ export class ProgressService {
     if (met >= 1) unlock.push('handshake');
     if (met >= 10) unlock.push('handshake_10');
     if (noteCount >= 5) unlock.push('note_taker');
+    if ((byAction.drive_by ?? 0) >= 5) unlock.push('field_agent');
+    if ((byAction.roster_ocr ?? 0) >= 1) unlock.push('roster_runner');
     if (deals >= 1) unlock.push('closer');
     if (state.streakDays >= 3) unlock.push('streak_3');
     if (state.streakDays >= 7) unlock.push('streak_7');
     if (state.level >= 5) unlock.push('level_5');
+
 
     const earned = await this.prisma.userBadge.findMany({ where: { userKey } });
     const have = new Set(earned.map((b) => b.badgeId));

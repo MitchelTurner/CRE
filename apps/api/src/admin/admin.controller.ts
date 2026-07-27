@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { SignalService } from '../enrichment/signal.service';
 import { EnrichmentService } from '../enrichment/enrichment.service';
 import { normalizeOwnerName } from '@cre/shared';
-import { getRodClientStatus } from '../clients/rod.client';
+import { createRodClient, getRodClientStatus, GovOsRodClient } from '../clients/rod.client';
 
 @Controller('admin')
 @UseGuards(ApiTokenGuard)
@@ -86,6 +86,20 @@ export class AdminController {
     return getRodClientStatus();
   }
 
+  @Post('rod/probe')
+  async probeRodLogin() {
+    const status = getRodClientStatus();
+    if (!status.ready) {
+      return { ok: false, ...status, detail: status.reason };
+    }
+    const client = createRodClient();
+    if (!(client instanceof GovOsRodClient)) {
+      return { ok: false, ...status, detail: 'ROD client is disabled' };
+    }
+    const probe = await client.probeLogin();
+    return { ...status, ...probe };
+  }
+
   @Post('rod/watch')
   async enqueueRodWatch() {
     const status = getRodClientStatus();
@@ -105,7 +119,7 @@ export class AdminController {
       jobName: JOBS.ROD_WATCH,
       rod: status,
       note: status.ready
-        ? 'ROD deed/mortgage watcher queued — watch Recent sync runs for rod_watch success/failed.'
+        ? 'ROD deed/mortgage watcher queued — watch Recent sync runs for rod_watch (login + WebSocket search).'
         : `ROD watcher queued, but it will no-op: ${status.reason}`,
     };
   }

@@ -637,7 +637,11 @@ export class EnrichmentService {
   }
 
   async monitorRecentDeeds(): Promise<number> {
-    const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const lookbackDays = Math.min(
+      Math.max(Number(process.env.ROD_LOOKBACK_DAYS || 3) || 3, 1),
+      30,
+    );
+    const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000);
     const deeds = await this.rod.searchRecentDeeds(since);
     let n = 0;
     for (const deed of deeds) {

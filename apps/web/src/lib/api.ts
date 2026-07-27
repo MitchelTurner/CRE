@@ -311,6 +311,12 @@ export function getRodStatus() {
   return request<RodStatus>('/admin/rod/status');
 }
 
+export function probeRodLogin() {
+  return request<RodStatus & { ok: boolean; detail: string }>('/admin/rod/probe', {
+    method: 'POST',
+  });
+}
+
 export function enqueueRodWatch() {
   return request<{
     enqueued: boolean;

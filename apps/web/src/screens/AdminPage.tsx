@@ -7,6 +7,7 @@ import {
   enqueueSync,
   getInventory,
   getRodStatus,
+  probeRodLogin,
   listSyncRuns,
   previewDigest,
   reactivateParcels,
@@ -180,11 +181,28 @@ export function AdminPage() {
           <span className="text-mist">ROD_SCRAPER_ENABLED=true</span>, then redeploy.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!!busy}
+            onClick={() =>
+              void run('ROD login probe', async () => {
+                const probe = await probeRodLogin();
+                setRodStatus(probe);
+                if (!probe.ok) {
+                  throw new Error(probe.detail || 'ROD login failed');
+                }
+                return { note: `ROD login OK — ${probe.detail}` };
+              })
+            }
+            className="btn-primary !text-xs disabled:opacity-50"
+          >
+            {busy === 'ROD login probe' ? 'Testing…' : 'Test ROD login'}
+          </button>
           <a
             href="https://greenville.sc.publicsearch.us/"
             target="_blank"
             rel="noreferrer"
-            className="btn-primary !text-xs"
+            className="btn-ghost !text-xs"
           >
             Open ROD Cloud Search → Register
           </a>

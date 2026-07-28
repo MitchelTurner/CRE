@@ -20,6 +20,16 @@ Lead-generation system for a commercial real estate **investment sales** agent i
 | **M8 — Probate Signals** | Done (enrichment + paste-assist + delay config) |
 | **M9 — Host Mode** | Done (invite-list CSV) |
 | **AI analytics** | Done (Ask AI, parcel explain, outreach polish, market narrative — opt-in via Anthropic) |
+| **Industrial Signals** | Done (Phases 1–4: UCC/FMCSA/ECHO/SBA/aerial/imports/hiring, SpaceScore, requirements/coverage) |
+
+### UCC live ingest
+
+Interactive SC SOS UCC search is CAPTCHA-gated — **do not scrape**. Production options:
+
+1. **SCI monthly bulk CSV** (official) — subscribe via [SC DGS bulk data](https://scdgs.sc.gov/service/secretary-state-bulk-data-images-and-notary-registration), extract to `UCC_BULK_DIR` (or set `UCC_BULK_CSV_URL` / `UCC_FEED_URL`)
+2. **Admin → Signals → UCC CSV paste** — normalized CSV stopgap
+
+Daily cron runs the UCC connector when a live path is configured.
 
 ### AI analytics (opt-in)
 

@@ -12,6 +12,8 @@ import {
   YardObservationService,
   type YardObservationInput,
 } from './yard-observation.service';
+import { UCC_TARGET_COUNTIES, UccConnector } from './connectors/ucc.connector';
+import { filterTargetCounties, joinUccBulkFiles } from './connectors/ucc-bulk.parser';
 
 @Controller('admin/signals')
 @UseGuards(ApiTokenGuard)
@@ -22,12 +24,59 @@ export class SignalsController {
     private readonly resolution: EntityResolutionService,
     private readonly spaceScores: SpaceScoreService,
     private readonly yard: YardObservationService,
+    private readonly ucc: UccConnector,
     @InjectQueue(QUEUES.SIGNALS) private readonly signalsQueue: Queue,
   ) {}
 
   @Get('sources')
   sources() {
     return this.pipeline.listSources();
+  }
+
+  @Get('ucc/status')
+  uccStatus() {
+    return this.ucc.status();
+  }
+
+  /** Ingest UCC CSV (normalized or SCI-style single file). */
+  @Post('ucc/ingest-csv')
+  async uccIngestCsv(
+    @Body()
+    body: {
+      csv?: string;
+      filingsCsv?: string;
+      partiesCsv?: string;
+      sinceDays?: number;
+    },
+  ) {
+    const since = new Date(
+      Date.now() - Math.min(Math.max(Number(body.sinceDays ?? 365) || 365, 1), 1095) * 86400000,
+    );
+    let filings = body.csv
+      ? this.ucc.parseCsvText(body.csv, since)
+      : [];
+    if (!filings.length && (body.filingsCsv || body.partiesCsv)) {
+      filings = filterTargetCounties(
+        joinUccBulkFiles({
+          filingsCsv: body.filingsCsv,
+          partiesCsv: body.partiesCsv,
+        }),
+        UCC_TARGET_COUNTIES,
+        since,
+      );
+    }
+    if (!filings.length) {
+      return { upserted: 0, count: 0, note: 'No UCC rows parsed' };
+    }
+    const records = filings.map((f) => ({
+      sourceRef: f.filingNumber,
+      body: f,
+    }));
+    const result = await this.pipeline.ingestRawRecords('ucc', records);
+    return {
+      ...result,
+      note: `Ingested ${result.upserted} UCC signals from ${filings.length} CSV rows`,
+    };
   }
 
   @Post('run/:key')

@@ -6,7 +6,9 @@ import {
   getReferralAttribution,
   getSignalMovers,
   getSignalSources,
+  getUccStatus,
   ingestSignalRecords,
+  ingestUccCsv,
   listResolutionQueue,
   resolveResolutionItem,
   runSignalSource,
@@ -80,21 +82,30 @@ export function SignalsPage() {
     yardAcres: '',
   });
   const [yardPreview, setYardPreview] = useState<string | null>(null);
+  const [uccStatus, setUccStatus] = useState<{
+    ready: boolean;
+    mode: string;
+    note: string;
+    signupUrl: string;
+  } | null>(null);
+  const [uccCsv, setUccCsv] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
 
   async function refresh() {
-    const [s, m, q, r, c] = await Promise.all([
+    const [s, m, q, r, c, u] = await Promise.all([
       getSignalSources(),
       getSignalMovers(),
       listResolutionQueue('pending'),
       getReferralAttribution(365),
       getIndustrialCoverage(),
+      getUccStatus(),
     ]);
     setSources(s);
     setMovers(m);
     setQueue(q);
     setReferrals(r);
     setCoverage(c);
+    setUccStatus(u);
   }
 
   useEffect(() => {
@@ -168,6 +179,21 @@ export function SignalsPage() {
 
       <section className="event-card">
         <h3 className="text-sm font-semibold text-white">Connectors</h3>
+        {uccStatus ? (
+          <p className={`mt-1 text-xs ${uccStatus.ready ? 'text-moss' : 'text-amber-300/90'}`}>
+            UCC: {uccStatus.mode} — {uccStatus.note}{' '}
+            {!uccStatus.ready ? (
+              <a
+                href={uccStatus.signupUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-moss font-semibold"
+              >
+                SCI bulk signup →
+              </a>
+            ) : null}
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {sources.map((s) => (
             <button
@@ -181,6 +207,31 @@ export function SignalsPage() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="event-card">
+        <h3 className="text-sm font-semibold text-white">UCC CSV ingest</h3>
+        <p className="text-fog mt-1 text-xs">
+          Paste normalized SCI monthly CSV (or fixture ucc-bulk-normalized.csv). Interactive SOS
+          search is CAPTCHA-gated — use bulk subscription or paste, never scrape.
+        </p>
+        <textarea
+          value={uccCsv}
+          onChange={(e) => setUccCsv(e.target.value)}
+          rows={6}
+          placeholder="filingNumber,filingDate,debtorName,debtorAddress,debtorCounty,securedParty,collateral,action"
+          className="border-pine-soft bg-ink text-mist mt-3 w-full rounded border px-3 py-2 font-mono text-xs"
+        />
+        <button
+          type="button"
+          disabled={!!busy || !uccCsv.trim()}
+          className="btn-primary mt-3 !text-xs disabled:opacity-50"
+          onClick={() =>
+            void run('UCC CSV', () => ingestUccCsv({ csv: uccCsv, sinceDays: 365 }))
+          }
+        >
+          Ingest UCC CSV
+        </button>
       </section>
 
       <section className="event-card">

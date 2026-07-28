@@ -7,6 +7,7 @@ import {
   enqueueSync,
   getInventory,
   getRodStatus,
+  getUccStatus,
   probeRodLogin,
   listSyncRuns,
   previewDigest,
@@ -19,6 +20,7 @@ import {
   pasteLiens,
   pasteBrokers,
   generateMarketNarrative,
+  runSignalSource,
 } from '../lib/api';
 import type { RodStatus } from '../lib/api';
 import type { DigestPreview, SyncRun } from '../lib/types';
@@ -45,17 +47,26 @@ export function AdminPage() {
     watchouts: string[];
   } | null>(null);
   const [rodStatus, setRodStatus] = useState<RodStatus | null>(null);
+  const [uccStatus, setUccStatus] = useState<{
+    ready: boolean;
+    mode: string;
+    note: string;
+    signupUrl: string;
+    bulkDir: string | null;
+  } | null>(null);
   const { push } = useToast();
 
   async function refreshRuns() {
-    const [data, inv, rod] = await Promise.all([
+    const [data, inv, rod, ucc] = await Promise.all([
       listSyncRuns(),
       getInventory(),
       getRodStatus().catch(() => null),
+      getUccStatus().catch(() => null),
     ]);
     setRuns(data);
     setInventory(inv);
     if (rod) setRodStatus(rod);
+    if (ucc) setUccStatus(ucc);
   }
 
   useEffect(() => {
@@ -163,6 +174,53 @@ export function AdminPage() {
         >
           {busy === 'Tax sync' ? 'Enqueueing…' : 'Tax delinquency sync'}
         </button>
+      </div>
+
+      <div className="event-card mt-4">
+        <p className="text-sm font-semibold text-white">SC UCC bulk data (Industrial Signals Tier 1)</p>
+        {uccStatus ? (
+          <p
+            className={`mt-1 text-xs font-semibold ${uccStatus.ready ? 'text-moss' : 'text-amber-300'}`}
+          >
+            Status: {uccStatus.ready ? 'ready' : 'paste-only'} — {uccStatus.mode} — {uccStatus.note}
+          </p>
+        ) : null}
+        <p className="text-fog mt-1 text-xs">
+          Official path is South Carolina Interactive monthly CSV bulk (~$12k/yr + SCI fee). After
+          subscribe, point Railway <span className="text-mist">UCC_BULK_DIR</span> at the extracted
+          drop (or <span className="text-mist">UCC_BULK_CSV_URL</span> /{' '}
+          <span className="text-mist">UCC_FEED_URL</span>). Do not scrape CAPTCHA-gated SOS search —
+          paste CSV on Signals as a stopgap.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!!busy}
+            onClick={() => void run('UCC run', () => runSignalSource('ucc'))}
+            className="btn-primary !text-xs disabled:opacity-50"
+          >
+            {busy === 'UCC run' ? 'Queueing…' : 'Run UCC connector'}
+          </button>
+          <a
+            href="https://scdgs.sc.gov/service/secretary-state-bulk-data-images-and-notary-registration"
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost !text-xs"
+          >
+            SCI bulk signup →
+          </a>
+          <a
+            href="https://www.sos.sc.gov/online-filings/uniform-commercial-code"
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost !text-xs"
+          >
+            SC SOS UCC home
+          </a>
+          <a href="/signals" className="btn-ghost !text-xs">
+            Signals → UCC CSV paste
+          </a>
+        </div>
       </div>
 
       <div className="event-card mt-4">

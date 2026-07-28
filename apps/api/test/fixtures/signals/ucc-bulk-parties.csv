@@ -1,0 +1,5 @@
+FileNumber,PartyType,Name,Address,City,State,Zip,County
+UCC-2026-7001,DEBTOR,Piedmont Metals Inc,88 Rutherford Rd,Greer,SC,29650,Greenville
+UCC-2026-7001,SECURED,Machine Capital,1 Finance Way,Charlotte,NC,28202,
+UCC-2026-7002,DEBTOR,Upstate Fabrication LLC,1200 Pelham Rd,Greenville,SC,29615,Greenville
+UCC-2026-7002,SECURED,First Equipment Finance,9 Lender St,Columbia,SC,29201,

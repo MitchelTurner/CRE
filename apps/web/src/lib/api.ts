@@ -864,6 +864,31 @@ export function generateIndustrialQuarterlyReport(email = false) {
   );
 }
 
+export function getUccStatus() {
+  return request<{
+    ready: boolean;
+    mode: string;
+    feedUrlSet: boolean;
+    bulkCsvUrlSet: boolean;
+    bulkDir: string | null;
+    targetCounties: string[];
+    signupUrl: string;
+    note: string;
+  }>('/admin/signals/ucc/status');
+}
+
+export function ingestUccCsv(body: {
+  csv?: string;
+  filingsCsv?: string;
+  partiesCsv?: string;
+  sinceDays?: number;
+}) {
+  return request<{ upserted: number; count: number; note?: string }>(
+    '/admin/signals/ucc/ingest-csv',
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
 export function createYardObservation(body: {
   pin?: string;
   companyName?: string;

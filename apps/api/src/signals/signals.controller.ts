@@ -110,7 +110,7 @@ export class SignalsController {
     const delta = Math.max(Number(minDelta ?? '20') || 20, 1);
     const rows = await this.prisma.spaceScore.findMany({
       where: {
-        previousScore: { not: null },
+        score: { gte: 15 },
         bandLabel: { in: ['hot', 'warm', 'watch'] },
       },
       include: {
@@ -128,7 +128,7 @@ export class SignalsController {
         companyId: r.companyId,
         companyName: r.company.canonicalName,
         score: r.score,
-        previousScore: r.previousScore,
+        previousScore: r.previousScore ?? 0,
         delta: r.score - (r.previousScore ?? 0),
         bandLabel: r.bandLabel,
         topSignals: r.company.signals.map((s) => ({
@@ -140,7 +140,7 @@ export class SignalsController {
           parcelId: s.parcelId,
         })),
       }))
-      .filter((r) => r.delta >= delta);
+      .filter((r) => r.delta >= delta || (r.previousScore === 0 && r.score >= delta));
   }
 
   @Get('resolution-queue')

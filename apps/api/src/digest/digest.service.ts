@@ -341,7 +341,6 @@ export class DigestService {
   async selectMovers(limit = 20): Promise<DigestMoverRow[]> {
     const rows = await this.prisma.spaceScore.findMany({
       where: {
-        previousScore: { not: null },
         score: { gte: 15 },
       },
       include: {
@@ -364,6 +363,7 @@ export class DigestService {
     for (const row of rows) {
       const prev = row.previousScore ?? 0;
       const delta = row.score - prev;
+      // First-seen hot scores (previous null→0) also surface as movers.
       if (delta < 20) continue;
       const signal = row.company.signals[0];
       const site = row.company.sites[0];

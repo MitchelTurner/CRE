@@ -17,6 +17,7 @@ export class JobsScheduler implements OnApplicationBootstrap {
     @InjectQueue(QUEUES.DIGEST) private readonly digestQueue: Queue,
     @InjectQueue(QUEUES.EVENTS) private readonly eventsQueue: Queue,
     @InjectQueue(QUEUES.REPORTS) private readonly reportsQueue: Queue,
+    @InjectQueue(QUEUES.SIGNALS) private readonly signalsQueue: Queue,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -114,8 +115,40 @@ export class JobsScheduler implements OnApplicationBootstrap {
         },
       );
 
+      // Industrial signals — UCC daily, FMCSA monthly, nightly space-score decay
+      await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'ucc', reason: 'cron' },
+        {
+          jobId: 'cron-signals-ucc',
+          repeat: { pattern: '0 10 * * *', tz: 'America/New_York' },
+          removeOnComplete: 50,
+          removeOnFail: 50,
+        },
+      );
+      await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'fmcsa', reason: 'cron' },
+        {
+          jobId: 'cron-signals-fmcsa',
+          repeat: { pattern: '0 11 1 * *', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      await this.signalsQueue.add(
+        JOBS.SIGNALS_SCORE_NIGHTLY,
+        { reason: 'cron' },
+        {
+          jobId: 'cron-signals-score-nightly',
+          repeat: { pattern: '15 2 * * *', tz: 'America/New_York' },
+          removeOnComplete: 30,
+          removeOnFail: 30,
+        },
+      );
+
       this.logger.log(
-        'Registered crons: parcels, enrichment, rod.watch (7:30/15:30 ET), tax.delinquency (9:00 ET), digest, events, reports',
+        'Registered crons: parcels, enrichment, rod.watch, tax, digest, events, reports, signals(ucc/fmcsa/score)',
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

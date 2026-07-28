@@ -9,7 +9,11 @@ import { AppConfigService } from '../app-config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ScoringService } from '../scoring/scoring.service';
 import { EmailService } from './email.service';
-import { renderDigestHtml, type DigestLeadRow } from './digest.template';
+import {
+  renderDigestHtml,
+  type DigestLeadRow,
+  type DigestMoverRow,
+} from './digest.template';
 
 export interface DigestPreviewResult {
   subject: string;
@@ -17,6 +21,7 @@ export interface DigestPreviewResult {
   leads: DigestLeadRow[];
   hotLeads: DigestLeadRow[];
   evergreenLeads: DigestLeadRow[];
+  movers: DigestMoverRow[];
 }
 
 @Injectable()
@@ -271,14 +276,17 @@ export class DigestService {
         a.startsAt.getTime() - b.startsAt.getTime(),
     );
 
+    const movers = await this.selectMovers(20);
+
     const countyName = this.config.get<string>('countyName') ?? 'Greenville';
-    const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new, ${hotLeads.length} hot)`;
+    const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new, ${hotLeads.length} hot, ${movers.length} movers)`;
     const html = renderDigestHtml({
       weekOf,
       countyName,
       hotLeads,
       evergreenLeads,
       estateLeads,
+      movers,
       events: upcomingEvents.map((e) => ({
         name: e.name,
         whenLabel: e.startsAt.toLocaleString('en-US', { timeZone: 'America/New_York' }),
@@ -289,7 +297,7 @@ export class DigestService {
     });
 
     if (!send) {
-      return { subject, html, leads, hotLeads, evergreenLeads };
+      return { subject, html, leads, hotLeads, evergreenLeads, movers };
     }
 
     const digest = await this.prisma.digest.create({
@@ -318,8 +326,8 @@ export class DigestService {
       data: { sentAt: new Date() },
     });
 
-    this.logger.log(`Digest ${digest.id} sent with ${leads.length} leads`);
-    return { subject, html, leads, hotLeads, evergreenLeads, digestId: digest.id };
+    this.logger.log(`Digest ${digest.id} sent with ${leads.length} leads + ${movers.length} movers`);
+    return { subject, html, leads, hotLeads, evergreenLeads, movers, digestId: digest.id };
   }
 
   async sendWeekly(options?: {
@@ -327,6 +335,78 @@ export class DigestService {
   }): Promise<{ digestId: string; leadCount: number }> {
     const result = await this.preview(true, options);
     return { digestId: result.digestId!, leadCount: result.leads.length };
+  }
+
+  /** Companies whose SpaceScore rose ≥20 since last compute. */
+  async selectMovers(limit = 20): Promise<DigestMoverRow[]> {
+    const rows = await this.prisma.spaceScore.findMany({
+      where: {
+        previousScore: { not: null },
+        score: { gte: 15 },
+      },
+      include: {
+        company: {
+          include: {
+            signals: { orderBy: { occurredAt: 'desc' }, take: 1 },
+            sites: { orderBy: { lastSeenAt: 'desc' }, take: 1 },
+          },
+        },
+      },
+      orderBy: { score: 'desc' },
+      take: 80,
+    });
+
+    const playbooks = await this.prisma.signalPlaybook.findMany();
+    const pbKey = (type: string, subtype: string | null) => `${type}::${subtype ?? ''}`;
+    const pbMap = new Map(playbooks.map((p) => [pbKey(p.type, p.subtype), p]));
+
+    const movers: DigestMoverRow[] = [];
+    for (const row of rows) {
+      const prev = row.previousScore ?? 0;
+      const delta = row.score - prev;
+      if (delta < 20) continue;
+      const signal = row.company.signals[0];
+      const site = row.company.sites[0];
+      let propertyLabel = 'unresolved — company only';
+      if (site?.parcelId) {
+        const parcel = await this.prisma.parcel.findUnique({
+          where: { id: site.parcelId },
+          select: { situsAddress: true, pin: true },
+        });
+        if (parcel) {
+          propertyLabel = parcel.situsAddress || parcel.pin;
+        }
+      } else if (site?.rawAddress) {
+        propertyLabel = site.rawAddress;
+      }
+
+      const pb =
+        (signal && pbMap.get(pbKey(signal.type, signal.subtype))) ||
+        (signal && pbMap.get(pbKey(signal.type, ''))) ||
+        null;
+      const detail =
+        signal && typeof signal.payload === 'object' && signal.payload && 'detail' in signal.payload
+          ? String((signal.payload as { detail?: unknown }).detail ?? '')
+          : signal?.headline ?? '';
+      const talkTrack = pb
+        ? pb.talkTrack
+            .replace(/\{\{company\}\}/g, row.company.canonicalName)
+            .replace(/\{\{detail\}\}/g, detail)
+        : null;
+
+      movers.push({
+        companyName: row.company.canonicalName,
+        score: row.score,
+        previousScore: prev,
+        delta,
+        bandLabel: row.bandLabel,
+        propertyLabel,
+        signalHeadline: signal?.headline ?? 'SpaceScore movement',
+        talkTrack,
+      });
+      if (movers.length >= limit) break;
+    }
+    return movers;
   }
 }
 

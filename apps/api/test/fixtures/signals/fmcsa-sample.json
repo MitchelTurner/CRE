@@ -1,0 +1,30 @@
+[
+  {
+    "dotNumber": "4123456",
+    "legalName": "Blue Ridge Hotshot LLC",
+    "phyStreet": "4500 Augusta Rd",
+    "phyCity": "Greenville",
+    "phyState": "SC",
+    "phyZip": "29605",
+    "powerUnits": 8,
+    "drivers": 10,
+    "cargoCarried": "General Freight",
+    "mcs150Mileage": 420000,
+    "snapshotMonth": "2026-07",
+    "isNew": true
+  },
+  {
+    "dotNumber": "3988777",
+    "legalName": "I-85 Logistics Co",
+    "phyStreet": "200 Donaldson Center Dr",
+    "phyCity": "Greenville",
+    "phyState": "SC",
+    "phyZip": "29605",
+    "powerUnits": 40,
+    "drivers": 48,
+    "cargoCarried": "Intermodal",
+    "snapshotMonth": "2026-07",
+    "priorPowerUnits": 28,
+    "isNew": false
+  }
+]

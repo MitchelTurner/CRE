@@ -5,6 +5,7 @@ export const QUEUES = {
   DIGEST: 'digest',
   EVENTS: 'events',
   REPORTS: 'reports',
+  SIGNALS: 'signals',
 } as const;
 
 export const JOBS = {
@@ -18,4 +19,6 @@ export const JOBS = {
   EVENTS_SYNC_ALL: 'events.syncAll',
   EVENTS_AUTO_BRIEFS: 'events.autoBriefs',
   REPORTS_QUARTERLY: 'reports.quarterly',
+  SIGNALS_RUN_SOURCE: 'signals.runSource',
+  SIGNALS_SCORE_NIGHTLY: 'signals.scoreNightly',
 } as const;

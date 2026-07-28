@@ -1,0 +1,32 @@
+[
+  {
+    "filingNumber": "UCC-2026-000401",
+    "filingDate": "2026-07-15",
+    "debtorName": "Upstate Fabrication LLC",
+    "debtorAddress": "1200 Pelham Rd Greenville SC 29615",
+    "debtorCounty": "Greenville",
+    "securedParty": "First Equipment Finance",
+    "collateral": "Cantilever racking, conveyor system, and AS/RS shuttle modules",
+    "action": "filing"
+  },
+  {
+    "filingNumber": "UCC-2026-000402",
+    "filingDate": "2026-07-18",
+    "debtorName": "Piedmont Metals Inc",
+    "debtorAddress": "88 Rutherford Rd Greer SC 29650",
+    "debtorCounty": "Greenville",
+    "securedParty": "Machine Capital",
+    "collateral": "CNC mill, lathe, and injection mold press",
+    "action": "filing"
+  },
+  {
+    "filingNumber": "UCC-2026-000100",
+    "filingDate": "2026-04-01",
+    "debtorName": "Piedmont Metals Inc",
+    "debtorAddress": "88 Rutherford Rd Greer SC 29650",
+    "debtorCounty": "Greenville",
+    "securedParty": "Machine Capital",
+    "collateral": "CNC mill",
+    "action": "termination"
+  }
+]

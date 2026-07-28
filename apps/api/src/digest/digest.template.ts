@@ -18,6 +18,17 @@ export interface DigestEventRow {
   url: string | null;
 }
 
+export interface DigestMoverRow {
+  companyName: string;
+  score: number;
+  previousScore: number;
+  delta: number;
+  bandLabel: string;
+  propertyLabel: string;
+  signalHeadline: string;
+  talkTrack: string | null;
+}
+
 export function renderDigestHtml(input: {
   weekOf: string;
   countyName: string;
@@ -25,7 +36,9 @@ export function renderDigestHtml(input: {
   evergreenLeads: DigestLeadRow[];
   events?: DigestEventRow[];
   estateLeads?: DigestLeadRow[];
+  movers?: DigestMoverRow[];
 }): string {
+  const moversSection = moversHtml(input.movers ?? []);
   const hotSection = sectionHtml('Hot this week', 'New catalysts — tax, foreclosure, maturity, zoning, permits, 1031, probate', input.hotLeads);
   const evergreenSection = sectionHtml(
     'Evergreen long-holds',
@@ -51,9 +64,10 @@ export function renderDigestHtml(input: {
           <td style="background:#0f766e;color:#ecfdf5;padding:20px 24px;">
             <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Weekly Digest</div>
             <div style="font-size:22px;font-weight:700;margin-top:4px;">${escapeHtml(input.countyName)} CRE Leads</div>
-            <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${total} new · ${input.hotLeads.length} hot</div>
+            <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${total} new · ${input.hotLeads.length} hot · ${(input.movers ?? []).length} movers</div>
           </td>
         </tr>
+        ${moversSection}
         ${eventsSection}
         ${hotSection}
         ${estateSection}
@@ -68,6 +82,46 @@ export function renderDigestHtml(input: {
   </table>
 </body>
 </html>`;
+}
+
+function moversHtml(movers: DigestMoverRow[]): string {
+  if (!movers.length) {
+    return `
+      <tr>
+        <td style="padding:20px 24px 8px;">
+          <div style="font-size:16px;font-weight:700;color:#111827;">Movers — space-change score</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">Occupiers whose SpaceScore rose ≥20 pts</div>
+          <div style="padding:16px 0;color:#9ca3af;font-size:14px;">None this week — run UCC/FMCSA ingest from Admin → Signals.</div>
+        </td>
+      </tr>`;
+  }
+  const rows = movers
+    .map(
+      (m) => `
+      <tr>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
+          <div style="font-weight:600;color:#111827;">${escapeHtml(m.companyName)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">
+            SpaceScore ${m.previousScore.toFixed(0)} → ${m.score.toFixed(0)} (+${m.delta.toFixed(0)}) · ${escapeHtml(m.bandLabel)} · ${escapeHtml(m.propertyLabel)}
+          </div>
+          <div style="font-size:14px;color:#374151;margin-top:6px;">${escapeHtml(m.signalHeadline)}</div>
+          ${
+            m.talkTrack
+              ? `<div style="font-size:13px;color:#0f766e;margin-top:8px;padding:8px 10px;background:#f0fdfa;border-left:3px solid #0f766e;">${escapeHtml(m.talkTrack)}</div>`
+              : ''
+          }
+        </td>
+      </tr>`,
+    )
+    .join('');
+  return `
+    <tr>
+      <td style="padding:20px 24px 0;">
+        <div style="font-size:16px;font-weight:700;color:#111827;">Movers — space-change score</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:2px;margin-bottom:8px;">Who needs a different building, and when</div>
+        <table role="presentation" width="100%">${rows}</table>
+      </td>
+    </tr>`;
 }
 
 function eventsHtml(events: DigestEventRow[]): string {

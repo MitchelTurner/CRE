@@ -6,3 +6,5 @@ export * from './types';
 export * from './counties';
 export * from './outreach';
 export * from './submarkets';
+export * from './company';
+export * from './space-score';

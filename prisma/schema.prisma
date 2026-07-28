@@ -414,3 +414,231 @@ model FieldCapture {
   @@index([latitude, longitude])
 }
 
+// ─── Industrial Signals (occupier space-change intelligence) ───────────────
+// Named IndustrialSignal to avoid colliding with parcel enrichment `Signal`.
+// Site.parcelId maps to the existing Parcel model (no separate Property table).
+
+enum IndustrialSignalType {
+  EQUIPMENT_FINANCING
+  FLEET_CHANGE
+  NEW_CARRIER
+  ENV_PERMIT
+  GENERATOR_STATUS_CHANGE
+  SBA_LOAN
+  IMPORT_VOLUME
+  HIRING_SURGE
+  YARD_UTILIZATION
+  UTILITY_CAPACITY
+  REFERRAL
+}
+
+model Company {
+  id             String            @id @default(cuid())
+  canonicalName  String
+  normalizedName String            @unique
+  naics          String?
+  dotNumber      String?           @unique
+  scSosEntityId  String?           @unique
+  employeeCount  Int?
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  aliases        CompanyAlias[]
+  sites          Site[]
+  signals        IndustrialSignal[]
+  spaceScore     SpaceScore?
+
+  @@index([normalizedName])
+}
+
+model CompanyAlias {
+  id             String  @id @default(cuid())
+  companyId      String
+  alias          String
+  normalizedName String
+  source         String
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([normalizedName])
+  @@index([companyId])
+}
+
+model Site {
+  id           String    @id @default(cuid())
+  companyId    String
+  parcelId     String?
+  rawAddress   String
+  normalized   String
+  latitude     Float?
+  longitude    Float?
+  matchMethod  String?
+  matchConf    Float?
+  isPrimary    Boolean   @default(false)
+  firstSeenAt  DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  signals IndustrialSignal[]
+
+  @@index([parcelId])
+  @@index([normalized])
+  @@index([companyId])
+}
+
+/// Occupier/owner event (orthogonal to parcel enrichment Signal).
+model IndustrialSignal {
+  id          String               @id @default(cuid())
+  type        IndustrialSignalType
+  subtype     String?
+  companyId   String
+  siteId      String?
+  parcelId    String?
+  occurredAt  DateTime
+  observedAt  DateTime             @default(now())
+  source      String
+  sourceRef   String
+  weight      Float
+  confidence  Float                @default(1.0)
+  headline    String
+  payload     Json
+  dismissedAt DateTime?
+  dismissedBy String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  site    Site?   @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@unique([source, sourceRef])
+  @@index([companyId, occurredAt])
+  @@index([parcelId, occurredAt])
+  @@index([type, occurredAt])
+}
+
+model SpaceScore {
+  companyId     String   @id
+  score         Float
+  bandLabel     String
+  topSignalIds  String[]
+  computedAt    DateTime
+  previousScore Float?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+/// Landing table for connector raw payloads (reprocess without re-fetch).
+model SignalRaw {
+  id         String   @id @default(cuid())
+  source     String
+  sourceRef  String
+  bodyHash   String
+  body       Json
+  fetchedAt  DateTime @default(now())
+  processedAt DateTime?
+
+  @@unique([source, sourceRef, bodyHash])
+  @@index([source, fetchedAt])
+  @@index([processedAt])
+}
+
+model FmcsaSnapshot {
+  id            String   @id @default(cuid())
+  dotNumber     String
+  snapshotMonth String
+  legalName     String
+  phyStreet     String?
+  phyCity       String?
+  phyState      String?
+  phyZip        String?
+  powerUnits    Int      @default(0)
+  drivers       Int      @default(0)
+  cargoCarried  String?
+  mcs150Mileage Int?
+  raw           Json?
+  createdAt     DateTime @default(now())
+
+  @@unique([dotNumber, snapshotMonth])
+  @@index([phyState, phyZip])
+  @@index([snapshotMonth])
+}
+
+model ResolutionReview {
+  id             String   @id @default(cuid())
+  kind           String
+  status         String   @default("pending")
+  rawName        String?
+  rawAddress     String?
+  normalizedName String?
+  candidateId    String?
+  candidateScore Float?
+  payload        Json?
+  note           String?
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+  resolvedBy     String?
+
+  @@index([status, createdAt])
+  @@index([kind, status])
+}
+
+model SignalPlaybook {
+  id          String               @id @default(cuid())
+  type        IndustrialSignalType
+  subtype     String               @default("")
+  channel     String
+  urgencyDays Int
+  talkTrack   String
+
+  @@unique([type, subtype])
+}
+
+model BuildingAttributes {
+  parcelId         String    @id
+  clearHeightFt    Float?
+  dockDoors        Int?
+  driveInDoors     Int?
+  sprinklerType    String?
+  powerAmps        Int?
+  powerVolts       Int?
+  railServed       Boolean?
+  yardAcres        Float?
+  trailerStalls    Int?
+  officeSf         Int?
+  craneCapacityTon Float?
+  yearBuilt        Int?
+  verifiedAt       DateTime?
+  verifiedBy       String?
+  sourceNotes      String?
+}
+
+model Requirement {
+  id             String   @id @default(cuid())
+  clientName     String
+  minSf          Int?
+  maxSf          Int?
+  minClearHeight Float?
+  minDockDoors   Int?
+  minYardAcres   Float?
+  railRequired   Boolean  @default(false)
+  submarkets     String[] @default([])
+  notes          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model YardObservation {
+  id               String   @id @default(cuid())
+  siteId           String?
+  parcelId         String?
+  flightDate       DateTime
+  trailerCount     Int?
+  containerCount   Int?
+  yardCoveragePct  Float?
+  imageRef         String?
+  annotatedImageRef String?
+  createdAt        DateTime @default(now())
+
+  @@index([siteId, flightDate])
+  @@index([parcelId, flightDate])
+}
+

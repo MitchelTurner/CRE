@@ -646,6 +646,82 @@ export function generateMarketNarrative() {
   }>('/analytics/market-narrative', { method: 'POST' });
 }
 
+export function getSignalSources() {
+  return request<Array<{ key: string; cadence: string; tier: number }>>('/admin/signals/sources');
+}
+
+export function runSignalSource(key: string) {
+  return request<{ enqueued: boolean; jobId: string; note?: string }>(
+    `/admin/signals/run/${encodeURIComponent(key)}`,
+    { method: 'POST' },
+  );
+}
+
+export function ingestSignalRecords(
+  key: string,
+  records: Array<{ sourceRef: string; body: unknown; fetchedAt?: string }>,
+) {
+  return request<{ upserted: number; count: number; note?: string }>(
+    `/admin/signals/ingest/${encodeURIComponent(key)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ records }),
+    },
+  );
+}
+
+export function submitManualSignal(body: {
+  companyName: string;
+  type: string;
+  headline: string;
+  siteAddress?: string;
+  referralSource?: string;
+  subtype?: string;
+  weight?: number;
+}) {
+  return request<{ signalId: string; companyId: string }>('/admin/signals/manual', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function getSignalMovers(minDelta = 20) {
+  return request<
+    Array<{
+      companyId: string;
+      companyName: string;
+      score: number;
+      previousScore: number | null;
+      delta: number;
+      bandLabel: string;
+      topSignals: Array<{ headline: string; type: string; subtype: string | null }>;
+    }>
+  >(`/admin/signals/movers?minDelta=${minDelta}`);
+}
+
+export function listResolutionQueue(status = 'pending') {
+  return request<
+    Array<{
+      id: string;
+      kind: string;
+      rawName: string | null;
+      rawAddress: string | null;
+      candidateScore: number | null;
+      status: string;
+    }>
+  >(`/admin/signals/resolution-queue?status=${encodeURIComponent(status)}`);
+}
+
+export function resolveResolutionItem(
+  id: string,
+  body: { action: 'confirm' | 'reject' | 'create_new'; note?: string },
+) {
+  return request<{ ok: boolean }>(`/admin/signals/resolution-queue/${encodeURIComponent(id)}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export async function verifyToken(): Promise<boolean> {
   const token = getToken();
   if (!token) return false;

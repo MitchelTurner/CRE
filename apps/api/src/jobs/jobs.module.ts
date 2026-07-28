@@ -12,6 +12,7 @@ import { JobsScheduler } from './jobs.scheduler';
       { name: QUEUES.DIGEST },
       { name: QUEUES.EVENTS },
       { name: QUEUES.REPORTS },
+      { name: QUEUES.SIGNALS },
     ),
   ],
   providers: [JobsScheduler],

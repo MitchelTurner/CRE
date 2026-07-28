@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  getReferralAttribution,
   getSignalMovers,
   getSignalSources,
   ingestSignalRecords,
@@ -35,6 +36,15 @@ export function SignalsPage() {
       status: string;
     }>
   >([]);
+  const [referrals, setReferrals] = useState<{
+    totalReferrals: number;
+    uniqueSources: number;
+    sources: Array<{
+      referralSource: string;
+      count: number;
+      companies: Array<{ companyName: string; bandLabel: string | null; headline: string }>;
+    }>;
+  } | null>(null);
   const [pasteKey, setPasteKey] = useState('ucc');
   const [pasteJson, setPasteJson] = useState('');
   const [manual, setManual] = useState({
@@ -47,14 +57,16 @@ export function SignalsPage() {
   const [busy, setBusy] = useState<string | null>(null);
 
   async function refresh() {
-    const [s, m, q] = await Promise.all([
+    const [s, m, q, r] = await Promise.all([
       getSignalSources(),
       getSignalMovers(),
       listResolutionQueue('pending'),
+      getReferralAttribution(365),
     ]);
     setSources(s);
     setMovers(m);
     setQueue(q);
+    setReferrals(r);
   }
 
   useEffect(() => {
@@ -87,8 +99,8 @@ export function SignalsPage() {
           Industrial Signals
         </h2>
         <p className="text-fog mt-1 max-w-2xl text-sm">
-          Occupier space-change intelligence (UCC, FMCSA, …) — orthogonal to parcel sell scores.
-          Paste feed JSON or enqueue connectors; resolution queue catches fuzzy matches.
+          Occupier space-change intelligence (UCC, FMCSA, ECHO, SBA) — orthogonal to parcel sell
+          scores. Paste feed JSON or enqueue connectors; resolution queue catches fuzzy matches.
         </p>
       </div>
 
@@ -112,8 +124,8 @@ export function SignalsPage() {
       <section className="event-card">
         <h3 className="text-sm font-semibold text-white">Paste feed JSON</h3>
         <p className="text-fog mt-1 text-xs">
-          UCC: array of filings. FMCSA: array of census rows (see fixtures). Lands in signal_raw then
-          normalizes.
+          UCC / FMCSA / ECHO / SBA JSON arrays (see apps/api/test/fixtures/signals). Lands in
+          signal_raw then normalizes.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <select
@@ -123,6 +135,8 @@ export function SignalsPage() {
           >
             <option value="ucc">ucc</option>
             <option value="fmcsa">fmcsa</option>
+            <option value="echo">echo</option>
+            <option value="sba">sba</option>
           </select>
           <button
             type="button"
@@ -133,12 +147,16 @@ export function SignalsPage() {
                 if (!Array.isArray(parsed)) throw new Error('JSON must be an array');
                 const records = parsed.map((body, i) => {
                   const row = body as Record<string, unknown>;
-                  const sourceRef = String(
-                    row.filingNumber ||
-                      (row.dotNumber && row.snapshotMonth
-                        ? `${row.dotNumber}:${row.snapshotMonth}`
-                        : `row-${i}`),
-                  );
+                  let sourceRef = `row-${i}`;
+                  if (row.filingNumber) sourceRef = String(row.filingNumber);
+                  else if (row.dotNumber && row.snapshotMonth) {
+                    sourceRef = `${row.dotNumber}:${row.snapshotMonth}`;
+                  } else if (row.loanNumber) sourceRef = String(row.loanNumber);
+                  else if (row.eventKind && row.facilityName) {
+                    sourceRef = `echo:${row.eventKind}:${row.registryId || row.facilityName}`;
+                  } else if (row.borrowerName && row.approvalDate) {
+                    sourceRef = `sba:${row.program}:${row.borrowerName}:${row.approvalDate}`;
+                  }
                   return { sourceRef, body };
                 });
                 return ingestSignalRecords(pasteKey, records);
@@ -213,6 +231,38 @@ export function SignalsPage() {
         >
           Log signal
         </button>
+      </section>
+
+      <section className="event-card">
+        <h3 className="text-sm font-semibold text-white">Referral attribution (12 mo)</h3>
+        <p className="text-fog mt-1 text-xs">
+          {referrals
+            ? `${referrals.totalReferrals} referrals · ${referrals.uniqueSources} sources`
+            : 'Loading…'}
+        </p>
+        <div className="mt-3 space-y-3">
+          {!referrals || referrals.sources.length === 0 ? (
+            <p className="text-fog text-xs">
+              No referrals yet — log a REFERRAL with a source name above.
+            </p>
+          ) : (
+            referrals.sources.map((s) => (
+              <div key={s.referralSource} className="border-pine-soft border-b pb-2 last:border-0">
+                <p className="text-sm font-semibold text-white">
+                  {s.referralSource}{' '}
+                  <span className="text-fog font-normal">({s.count})</span>
+                </p>
+                <p className="text-mist mt-1 text-xs">
+                  {s.companies
+                    .slice(0, 3)
+                    .map((c) => `${c.companyName}${c.bandLabel ? ` · ${c.bandLabel}` : ''}`)
+                    .join(' · ')}
+                  {s.companies.length > 3 ? ` · +${s.companies.length - 3} more` : ''}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="event-card">

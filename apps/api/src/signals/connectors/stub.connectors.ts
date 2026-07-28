@@ -1,6 +1,6 @@
 import type { RawRecord, SignalDraft, SignalSource } from './signal-source.interface';
 
-/** Deferred connectors — interface only until feature-flagged. */
+/** Deferred Tier-2 connectors — interface only until feature-flagged. */
 class BaseStubConnector implements SignalSource {
   constructor(
     readonly key: string,
@@ -17,18 +17,6 @@ class BaseStubConnector implements SignalSource {
 
   normalize(_raw: RawRecord): SignalDraft[] {
     return [];
-  }
-}
-
-export class EchoConnector extends BaseStubConnector {
-  constructor() {
-    super('echo', '0 12 * * 1', 1);
-  }
-}
-
-export class SbaConnector extends BaseStubConnector {
-  constructor() {
-    super('sba', '0 13 1 */3 *', 1);
   }
 }
 

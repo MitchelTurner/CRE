@@ -137,6 +137,26 @@ export class JobsScheduler implements OnApplicationBootstrap {
         },
       );
       await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'echo', reason: 'cron' },
+        {
+          jobId: 'cron-signals-echo',
+          repeat: { pattern: '0 12 * * 1', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'sba', reason: 'cron' },
+        {
+          jobId: 'cron-signals-sba',
+          repeat: { pattern: '0 13 1 1,4,7,10 *', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      await this.signalsQueue.add(
         JOBS.SIGNALS_SCORE_NIGHTLY,
         { reason: 'cron' },
         {
@@ -148,7 +168,7 @@ export class JobsScheduler implements OnApplicationBootstrap {
       );
 
       this.logger.log(
-        'Registered crons: parcels, enrichment, rod.watch, tax, digest, events, reports, signals(ucc/fmcsa/score)',
+        'Registered crons: parcels, enrichment, rod.watch, tax, digest, events, reports, signals(ucc/fmcsa/echo/sba/score)',
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

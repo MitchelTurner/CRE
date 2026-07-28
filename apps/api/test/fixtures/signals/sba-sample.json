@@ -1,0 +1,36 @@
+[
+  {
+    "program": "504",
+    "approvalDate": "2026-03-15",
+    "borrowerName": "Upstate Fabrication LLC",
+    "borrowerStreet": "1200 Pelham Rd",
+    "borrowerCity": "Greenville",
+    "borrowerState": "SC",
+    "borrowerZip": "29615",
+    "borrowerCounty": "Greenville",
+    "projectCounty": "Greenville",
+    "projectState": "SC",
+    "naicsCode": "332710",
+    "naicsDescription": "Machine Shops",
+    "grossApproval": 1250000,
+    "bankName": "Upstate CDC",
+    "loanNumber": "504-SC-2026-401"
+  },
+  {
+    "program": "7a",
+    "approvalDate": "2026-04-02",
+    "borrowerName": "Piedmont Logistics Inc",
+    "borrowerStreet": "200 Brookfield St",
+    "borrowerCity": "Greer",
+    "borrowerState": "SC",
+    "borrowerZip": "29650",
+    "borrowerCounty": "Greenville",
+    "projectCounty": "Greenville",
+    "projectState": "SC",
+    "naicsCode": "493110",
+    "naicsDescription": "General Warehousing and Storage",
+    "grossApproval": 450000,
+    "bankName": "First Citizen Bank",
+    "loanNumber": "7A-SC-2026-882"
+  }
+]

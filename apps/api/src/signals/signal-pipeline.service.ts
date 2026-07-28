@@ -5,12 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { SignalSource } from './connectors/signal-source.interface';
 import { UccConnector } from './connectors/ucc.connector';
 import { FmcsaConnector } from './connectors/fmcsa.connector';
-import {
-  EchoConnector,
-  HiringConnector,
-  ImportsConnector,
-  SbaConnector,
-} from './connectors/stub.connectors';
+import { EchoConnector } from './connectors/echo.connector';
+import { SbaConnector } from './connectors/sba.connector';
+import { HiringConnector, ImportsConnector } from './connectors/stub.connectors';
 import { EntityResolutionService } from './resolution/entity-resolution.service';
 import { SpaceScoreService } from './space-score.service';
 
@@ -135,6 +132,12 @@ export class SignalPipelineService {
             });
             upserted += 1;
             this.spaceScores.enqueue(company.companyId);
+            await this.maybeAnnotateBuilding(
+              draft.type,
+              site?.parcelId,
+              draft.payload,
+              draft.headline,
+            );
           } catch (err) {
             this.logger.warn(
               `Signal upsert failed ${source.key}/${draft.sourceRef}: ${
@@ -251,10 +254,42 @@ export class SignalPipelineService {
           },
         });
         this.spaceScores.enqueue(company.companyId);
+        await this.maybeAnnotateBuilding(
+          draft.type,
+          site?.parcelId,
+          draft.payload,
+          draft.headline,
+        );
         upserted += 1;
       }
     }
     return { upserted, count: records.length };
+  }
+
+  /** Persist ECHO/env notes onto BuildingAttributes when a parcel is resolved. */
+  private async maybeAnnotateBuilding(
+    type: string,
+    parcelId: string | null | undefined,
+    payload: Record<string, unknown>,
+    headline: string,
+  ) {
+    if (!parcelId) return;
+    if (type !== 'ENV_PERMIT' && type !== 'GENERATOR_STATUS_CHANGE') return;
+    const note =
+      (payload.envNote != null ? String(payload.envNote) : null) || headline;
+    if (!note) return;
+    const existing = await this.prisma.buildingAttributes.findUnique({
+      where: { parcelId },
+      select: { sourceNotes: true },
+    });
+    const prior = existing?.sourceNotes?.trim() || '';
+    if (prior.includes(note)) return;
+    const merged = prior ? `${prior}\n${note}` : note;
+    await this.prisma.buildingAttributes.upsert({
+      where: { parcelId },
+      create: { parcelId, sourceNotes: merged.slice(0, 4000) },
+      update: { sourceNotes: merged.slice(0, 4000) },
+    });
   }
 }
 

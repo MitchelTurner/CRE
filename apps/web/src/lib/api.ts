@@ -712,6 +712,26 @@ export function listResolutionQueue(status = 'pending') {
   >(`/admin/signals/resolution-queue?status=${encodeURIComponent(status)}`);
 }
 
+export function getReferralAttribution(days = 365) {
+  return request<{
+    days: number;
+    totalReferrals: number;
+    uniqueSources: number;
+    sources: Array<{
+      referralSource: string;
+      count: number;
+      companies: Array<{
+        companyId: string;
+        companyName: string;
+        score: number | null;
+        bandLabel: string | null;
+        headline: string;
+        occurredAt: string;
+      }>;
+    }>;
+  }>(`/admin/signals/referrals?days=${days}`);
+}
+
 export function resolveResolutionItem(
   id: string,
   body: { action: 'confirm' | 'reject' | 'create_new'; note?: string },

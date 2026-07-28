@@ -208,4 +208,69 @@ export class SignalsController {
   playbooks() {
     return this.prisma.signalPlaybook.findMany({ orderBy: [{ type: 'asc' }, { subtype: 'asc' }] });
   }
+
+  /**
+   * Referral attribution — group REFERRAL signals by payload.referralSource.
+   * Surfaces who feeds deals and which companies they unlocked.
+   */
+  @Get('referrals')
+  async referrals(@Query('days') daysRaw?: string) {
+    const days = Math.min(Math.max(Number(daysRaw ?? '365') || 365, 30), 1095);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.industrialSignal.findMany({
+      where: {
+        type: 'REFERRAL',
+        occurredAt: { gte: since },
+        dismissedAt: null,
+      },
+      include: {
+        company: {
+          include: { spaceScore: true },
+        },
+      },
+      orderBy: { occurredAt: 'desc' },
+      take: 500,
+    });
+
+    type Bucket = {
+      referralSource: string;
+      count: number;
+      companies: Array<{
+        companyId: string;
+        companyName: string;
+        score: number | null;
+        bandLabel: string | null;
+        headline: string;
+        occurredAt: string;
+      }>;
+    };
+    const map = new Map<string, Bucket>();
+
+    for (const row of rows) {
+      const payload = row.payload as { referralSource?: string | null } | null;
+      const source = (payload?.referralSource || 'unattributed').trim() || 'unattributed';
+      let bucket = map.get(source);
+      if (!bucket) {
+        bucket = { referralSource: source, count: 0, companies: [] };
+        map.set(source, bucket);
+      }
+      bucket.count += 1;
+      bucket.companies.push({
+        companyId: row.companyId,
+        companyName: row.company.canonicalName,
+        score: row.company.spaceScore?.score ?? null,
+        bandLabel: row.company.spaceScore?.bandLabel ?? null,
+        headline: row.headline,
+        occurredAt: row.occurredAt.toISOString(),
+      });
+    }
+
+    const sources = [...map.values()].sort((a, b) => b.count - a.count);
+    return {
+      days,
+      totalReferrals: rows.length,
+      uniqueSources: sources.length,
+      sources,
+    };
+  }
 }

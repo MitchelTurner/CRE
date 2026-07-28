@@ -1,0 +1,42 @@
+[
+  {
+    "eventKind": "air_fce",
+    "facilityName": "Upstate Coatings Inc",
+    "registryId": "110012345678",
+    "address": "450 Rutherford Rd",
+    "city": "Greenville",
+    "state": "SC",
+    "zip": "29609",
+    "occurredAt": "2026-06-12T00:00:00.000Z",
+    "evaluationDate": "2026-06-12",
+    "program": "CAA"
+  },
+  {
+    "eventKind": "rcra_change",
+    "facilityName": "Piedmont Metals Inc",
+    "registryId": "110098765432",
+    "handlerId": "SCR000123456",
+    "address": "88 Rutherford Rd",
+    "city": "Greer",
+    "state": "SC",
+    "zip": "29650",
+    "occurredAt": "2026-07-01T00:00:00.000Z",
+    "priorUniverse": "SQG",
+    "rcraUniverse": "LQG",
+    "direction": "increase",
+    "program": "RCRA"
+  },
+  {
+    "eventKind": "npdes_new",
+    "facilityName": "Blue Ridge Plastics LLC",
+    "registryId": "110055566677",
+    "npdesId": "SC0023456",
+    "address": "12 Industrial Blvd",
+    "city": "Piedmont",
+    "state": "SC",
+    "zip": "29673",
+    "occurredAt": "2026-05-20T00:00:00.000Z",
+    "issueDate": "2026-05-20",
+    "program": "CWA"
+  }
+]

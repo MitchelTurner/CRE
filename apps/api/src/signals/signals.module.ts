@@ -3,12 +3,9 @@ import { JobsModule } from '../jobs/jobs.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { UccConnector } from './connectors/ucc.connector';
 import { FmcsaConnector } from './connectors/fmcsa.connector';
-import {
-  EchoConnector,
-  HiringConnector,
-  ImportsConnector,
-  SbaConnector,
-} from './connectors/stub.connectors';
+import { EchoConnector } from './connectors/echo.connector';
+import { SbaConnector } from './connectors/sba.connector';
+import { HiringConnector, ImportsConnector } from './connectors/stub.connectors';
 import { EntityResolutionService } from './resolution/entity-resolution.service';
 import { SignalPipelineService } from './signal-pipeline.service';
 import { SpaceScoreService } from './space-score.service';

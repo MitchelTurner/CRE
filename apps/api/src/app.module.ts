@@ -25,6 +25,7 @@ import { ProgressModule } from './progress/progress.module';
 import { NotesModule } from './notes/notes.module';
 import { DrivebyModule } from './driveby/driveby.module';
 import { SignalsModule } from './signals/signals.module';
+import { IndustrialModule } from './industrial/industrial.module';
 import { HealthController } from './health.controller';
 import { buildRedisConnection } from './config/redis.connection';
 
@@ -64,6 +65,7 @@ import { buildRedisConnection } from './config/redis.connection';
     NotesModule,
     DrivebyModule,
     SignalsModule,
+    IndustrialModule,
     AdminModule,
   ],
 

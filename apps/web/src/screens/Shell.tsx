@@ -12,6 +12,7 @@ const links = [
   { to: '/notes', label: 'Notes' },
   { to: '/drive-by', label: 'Drive-by' },
   { to: '/signals', label: 'Signals' },
+  { to: '/requirements', label: 'Requirements' },
   { to: '/parcels', label: 'Parcels' },
   { to: '/map', label: 'Map' },
   { to: '/pipeline', label: 'Pipeline' },

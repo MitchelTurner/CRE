@@ -29,6 +29,16 @@ export interface DigestMoverRow {
   talkTrack: string | null;
 }
 
+export interface DigestRequirementMatchRow {
+  clientName: string;
+  pin: string;
+  address: string;
+  ownerName: string;
+  isListed: boolean;
+  matchExplanation: string;
+  score: number;
+}
+
 export function renderDigestHtml(input: {
   weekOf: string;
   countyName: string;
@@ -37,8 +47,10 @@ export function renderDigestHtml(input: {
   events?: DigestEventRow[];
   estateLeads?: DigestLeadRow[];
   movers?: DigestMoverRow[];
+  requirementMatches?: DigestRequirementMatchRow[];
 }): string {
   const moversSection = moversHtml(input.movers ?? []);
+  const reqSection = requirementMatchesHtml(input.requirementMatches ?? []);
   const hotSection = sectionHtml('Hot this week', 'New catalysts — tax, foreclosure, maturity, zoning, permits, 1031, probate', input.hotLeads);
   const evergreenSection = sectionHtml(
     'Evergreen long-holds',
@@ -64,10 +76,11 @@ export function renderDigestHtml(input: {
           <td style="background:#0f766e;color:#ecfdf5;padding:20px 24px;">
             <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Weekly Digest</div>
             <div style="font-size:22px;font-weight:700;margin-top:4px;">${escapeHtml(input.countyName)} CRE Leads</div>
-            <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${total} new · ${input.hotLeads.length} hot · ${(input.movers ?? []).length} movers</div>
+            <div style="font-size:14px;margin-top:4px;opacity:0.9;">Week of ${escapeHtml(input.weekOf)} · ${total} new · ${input.hotLeads.length} hot · ${(input.movers ?? []).length} movers · ${(input.requirementMatches ?? []).length} req matches</div>
           </td>
         </tr>
         ${moversSection}
+        ${reqSection}
         ${eventsSection}
         ${hotSection}
         ${estateSection}
@@ -82,6 +95,41 @@ export function renderDigestHtml(input: {
   </table>
 </body>
 </html>`;
+}
+
+function requirementMatchesHtml(rows: DigestRequirementMatchRow[]): string {
+  if (!rows.length) {
+    return `
+      <tr>
+        <td style="padding:20px 24px 8px;">
+          <div style="font-size:16px;font-weight:700;color:#111827;">Requirement matches</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">Off-market buildings vs active client needs</div>
+          <div style="padding:16px 0;color:#9ca3af;font-size:14px;">None this week — add a requirement under Signals → Requirements.</div>
+        </td>
+      </tr>`;
+  }
+  const body = rows
+    .map(
+      (r) => `
+      <tr>
+        <td style="padding:12px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;">
+          <div style="font-weight:600;color:#111827;">${escapeHtml(r.clientName)} · ${escapeHtml(r.address || r.pin)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px;">
+            ${escapeHtml(r.ownerName || 'Owner unknown')} · ${r.isListed ? 'listed' : 'off-market'} · score ${r.score.toFixed(0)}
+          </div>
+          <div style="font-size:14px;color:#374151;margin-top:6px;">${escapeHtml(r.matchExplanation)}</div>
+        </td>
+      </tr>`,
+    )
+    .join('');
+  return `
+    <tr>
+      <td style="padding:20px 24px 0;">
+        <div style="font-size:16px;font-weight:700;color:#111827;">Requirement matches</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:2px;margin-bottom:8px;">New off-market fits against active requirements</div>
+        <table role="presentation" width="100%">${body}</table>
+      </td>
+    </tr>`;
 }
 
 function moversHtml(movers: DigestMoverRow[]): string {

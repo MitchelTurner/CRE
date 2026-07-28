@@ -742,6 +742,128 @@ export function resolveResolutionItem(
   });
 }
 
+export type BuildingAttributesPayload = {
+  buildingSf?: number | null;
+  clearHeightFt?: number | null;
+  dockDoors?: number | null;
+  driveInDoors?: number | null;
+  sprinklerType?: string | null;
+  powerAmps?: number | null;
+  powerVolts?: number | null;
+  railServed?: boolean | null;
+  yardAcres?: number | null;
+  trailerStalls?: number | null;
+  officeSf?: number | null;
+  craneCapacityTon?: number | null;
+  yearBuilt?: number | null;
+  isListed?: boolean | null;
+  sourceNotes?: string | null;
+  verifiedBy?: string | null;
+  markVerified?: boolean;
+};
+
+export function getBuildingAttributes(pin: string) {
+  return request<{
+    pin: string;
+    attributes: (BuildingAttributesPayload & {
+      verifiedAt?: string | null;
+      verifiedBy?: string | null;
+    }) | null;
+    inferred: { buildingSf: number | null; yearBuilt: number | null };
+    display: {
+      buildingSf: number | null;
+      buildingSfVerified: boolean;
+      yearBuilt: number | null;
+      yearBuiltVerified: boolean;
+      clearHeightFt: number | null;
+      clearHeightVerified: boolean;
+    };
+  }>(`/parcels/${encodeURIComponent(pin)}/building-attributes`);
+}
+
+export function saveBuildingAttributes(pin: string, body: BuildingAttributesPayload) {
+  return request<{ pin: string; attributes: BuildingAttributesPayload }>(
+    `/parcels/${encodeURIComponent(pin)}/building-attributes`,
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
+}
+
+export function getIndustrialCoverage() {
+  return request<{
+    minSf: number;
+    totalEligible: number;
+    totalWithVerifiedClear: number;
+    pct: number;
+    bySubmarket: Array<{
+      submarket: string;
+      eligible: number;
+      withVerifiedClear: number;
+      pct: number;
+      missingPins: string[];
+    }>;
+    note: string;
+  }>('/industrial/coverage');
+}
+
+export function listRequirements(all = false) {
+  return request<
+    Array<{
+      id: string;
+      clientName: string;
+      minSf: number | null;
+      maxSf: number | null;
+      minClearHeight: number | null;
+      minDockDoors: number | null;
+      minYardAcres: number | null;
+      railRequired: boolean;
+      submarkets: string[];
+      notes: string | null;
+      isActive: boolean;
+    }>
+  >(`/requirements${all ? '?all=1' : ''}`);
+}
+
+export function createRequirement(body: {
+  clientName: string;
+  minSf?: number | null;
+  maxSf?: number | null;
+  minClearHeight?: number | null;
+  minDockDoors?: number | null;
+  minYardAcres?: number | null;
+  railRequired?: boolean;
+  submarkets?: string[];
+  notes?: string | null;
+}) {
+  return request<{ id: string }>('/requirements', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function getRequirementMatches(id: string) {
+  return request<{
+    requirement: { id: string; clientName: string };
+    matches: Array<{
+      pin: string;
+      situsAddress: string | null;
+      submarket: string | null;
+      ownerName: string | null;
+      isListed: boolean;
+      score: number;
+      matchExplanation: string;
+      buildingSf: number | null;
+      clearHeightFt: number | null;
+    }>;
+  }>(`/requirements/${encodeURIComponent(id)}/matches`);
+}
+
+export function generateIndustrialQuarterlyReport(email = false) {
+  return request<{ reportId: string; title: string; verifiedCount: number; coverage: { pct: number } }>(
+    '/admin/reports/industrial-quarterly',
+    { method: 'POST', body: JSON.stringify({ email }) },
+  );
+}
+
 export async function verifyToken(): Promise<boolean> {
   const token = getToken();
   if (!token) return false;

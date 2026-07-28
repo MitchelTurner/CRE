@@ -21,6 +21,7 @@ import { CopyButton } from '../components/CopyButton';
 import { SignalChips } from '../components/SignalChips';
 import { AskAiPanel } from '../components/AskAiPanel';
 import { NotesPanel } from '../components/NotesPanel';
+import { BuildingAttributesForm } from '../components/BuildingAttributesForm';
 import { announceAward } from '../lib/awards';
 import { useToast } from '../state/toast';
 
@@ -292,6 +293,8 @@ export function ParcelDetailPage() {
               </ul>
             </div>
           ) : null}
+
+          <BuildingAttributesForm pin={parcel.pin} />
 
           {parcel.signals.length ? (
             <div className="border-pine/50 mt-10 border-t pt-6">

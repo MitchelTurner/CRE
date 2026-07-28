@@ -13,7 +13,9 @@ import {
   renderDigestHtml,
   type DigestLeadRow,
   type DigestMoverRow,
+  type DigestRequirementMatchRow,
 } from './digest.template';
+import { buildExplanation, softScore } from '../industrial/requirement-matching.logic';
 
 export interface DigestPreviewResult {
   subject: string;
@@ -22,6 +24,7 @@ export interface DigestPreviewResult {
   hotLeads: DigestLeadRow[];
   evergreenLeads: DigestLeadRow[];
   movers: DigestMoverRow[];
+  requirementMatches: DigestRequirementMatchRow[];
 }
 
 @Injectable()
@@ -277,9 +280,10 @@ export class DigestService {
     );
 
     const movers = await this.selectMovers(20);
+    const requirementMatches = await this.selectRequirementMatches(12);
 
     const countyName = this.config.get<string>('countyName') ?? 'Greenville';
-    const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new, ${hotLeads.length} hot, ${movers.length} movers)`;
+    const subject = `${countyName} CRE Leads — Week of ${weekOf} (${leads.length} new, ${hotLeads.length} hot, ${movers.length} movers, ${requirementMatches.length} req)`;
     const html = renderDigestHtml({
       weekOf,
       countyName,
@@ -287,6 +291,7 @@ export class DigestService {
       evergreenLeads,
       estateLeads,
       movers,
+      requirementMatches,
       events: upcomingEvents.map((e) => ({
         name: e.name,
         whenLabel: e.startsAt.toLocaleString('en-US', { timeZone: 'America/New_York' }),
@@ -297,7 +302,7 @@ export class DigestService {
     });
 
     if (!send) {
-      return { subject, html, leads, hotLeads, evergreenLeads, movers };
+      return { subject, html, leads, hotLeads, evergreenLeads, movers, requirementMatches };
     }
 
     const digest = await this.prisma.digest.create({
@@ -326,8 +331,19 @@ export class DigestService {
       data: { sentAt: new Date() },
     });
 
-    this.logger.log(`Digest ${digest.id} sent with ${leads.length} leads + ${movers.length} movers`);
-    return { subject, html, leads, hotLeads, evergreenLeads, movers, digestId: digest.id };
+    this.logger.log(
+      `Digest ${digest.id} sent with ${leads.length} leads + ${movers.length} movers + ${requirementMatches.length} req matches`,
+    );
+    return {
+      subject,
+      html,
+      leads,
+      hotLeads,
+      evergreenLeads,
+      movers,
+      requirementMatches,
+      digestId: digest.id,
+    };
   }
 
   async sendWeekly(options?: {
@@ -335,6 +351,86 @@ export class DigestService {
   }): Promise<{ digestId: string; leadCount: number }> {
     const result = await this.preview(true, options);
     return { digestId: result.digestId!, leadCount: result.leads.length };
+  }
+
+  /** Top off-market matches against active client requirements. */
+  async selectRequirementMatches(limit = 12): Promise<DigestRequirementMatchRow[]> {
+    const reqs = await this.prisma.requirement.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    if (!reqs.length) return [];
+
+    const attrs = await this.prisma.buildingAttributes.findMany({
+      where: {
+        OR: [
+          { buildingSf: { not: null } },
+          { clearHeightFt: { not: null } },
+          { yardAcres: { not: null } },
+        ],
+      },
+    });
+    if (!attrs.length) return [];
+
+    const parcels = await this.prisma.parcel.findMany({
+      where: { id: { in: attrs.map((a) => a.parcelId) }, isActive: true },
+      include: { owner: { select: { nameRaw: true } } },
+    });
+    const parcelMap = new Map(parcels.map((p) => [p.id, p]));
+
+    const listingSignals = await this.prisma.signal.findMany({
+      where: {
+        parcelId: { in: attrs.map((a) => a.parcelId) },
+        type: { in: ['nearby_listing', 'vacancy_proxy'] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      select: { parcelId: true },
+    });
+    const listedFromSignal = new Set(listingSignals.map((s) => s.parcelId));
+
+    const outreachCutoff = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000);
+    const recentLeadParcelIds = new Set(
+      (
+        await this.prisma.lead.findMany({
+          where: { createdAt: { gte: outreachCutoff }, status: { not: 'snoozed' } },
+          select: { parcelId: true },
+          take: 500,
+        })
+      ).map((l) => l.parcelId),
+    );
+
+    const out: DigestRequirementMatchRow[] = [];
+    for (const req of reqs) {
+      for (const a of attrs) {
+        const parcel = parcelMap.get(a.parcelId);
+        if (!parcel) continue;
+        if (recentLeadParcelIds.has(parcel.id)) continue;
+        const sf = a.buildingSf;
+        if (req.minSf != null && (sf == null || sf < req.minSf)) continue;
+        if (req.maxSf != null && (sf == null || sf > req.maxSf)) continue;
+        if (req.railRequired && a.railServed !== true) continue;
+        if (req.submarkets.length) {
+          const sm = (parcel.submarket || '').toLowerCase();
+          if (!req.submarkets.some((s) => sm.includes(s.toLowerCase()))) continue;
+        }
+        const isListed = a.isListed || listedFromSignal.has(a.parcelId);
+        if (isListed) continue; // digest highlights off-market
+        const score = softScore(req, a) + 25;
+        out.push({
+          clientName: req.clientName,
+          pin: parcel.pin,
+          address: parcel.situsAddress || parcel.pin,
+          ownerName: parcel.owner?.nameRaw || 'Owner unknown',
+          isListed,
+          matchExplanation: buildExplanation(req, a, isListed),
+          score,
+        });
+      }
+    }
+
+    out.sort((a, b) => b.score - a.score);
+    return out.slice(0, limit);
   }
 
   /** Companies whose SpaceScore rose ≥20 since last compute. */

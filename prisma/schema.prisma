@@ -594,6 +594,8 @@ model SignalPlaybook {
 
 model BuildingAttributes {
   parcelId         String    @id
+  /// Rentable / building SF — required for requirement matching + coverage KPI.
+  buildingSf       Int?
   clearHeightFt    Float?
   dockDoors        Int?
   driveInDoors     Int?
@@ -606,6 +608,8 @@ model BuildingAttributes {
   officeSf         Int?
   craneCapacityTon Float?
   yearBuilt        Int?
+  /// Agent-marked MLS/listing status; matching also checks nearby_listing signals.
+  isListed         Boolean   @default(false)
   verifiedAt       DateTime?
   verifiedBy       String?
   sourceNotes      String?

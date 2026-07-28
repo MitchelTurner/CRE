@@ -18,6 +18,7 @@ import { QuestsPage } from './screens/QuestsPage';
 import { NotesPage } from './screens/NotesPage';
 import { DriveByPage } from './screens/DriveByPage';
 import { SignalsPage } from './screens/SignalsPage';
+import { RequirementsPage } from './screens/RequirementsPage';
 
 
 
@@ -54,6 +55,7 @@ export default function App() {
             <Route path="notes" element={<NotesPage />} />
             <Route path="drive-by" element={<DriveByPage />} />
             <Route path="signals" element={<SignalsPage />} />
+            <Route path="requirements" element={<RequirementsPage />} />
             <Route path="parcels" element={<ParcelsPage />} />
 
             <Route path="parcels/:pin" element={<ParcelDetailPage />} />

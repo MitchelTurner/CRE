@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
+  getIndustrialCoverage,
   getReferralAttribution,
   getSignalMovers,
   getSignalSources,
@@ -45,6 +47,18 @@ export function SignalsPage() {
       companies: Array<{ companyName: string; bandLabel: string | null; headline: string }>;
     }>;
   } | null>(null);
+  const [coverage, setCoverage] = useState<{
+    pct: number;
+    totalEligible: number;
+    totalWithVerifiedClear: number;
+    bySubmarket: Array<{
+      submarket: string;
+      eligible: number;
+      withVerifiedClear: number;
+      pct: number;
+      missingPins: string[];
+    }>;
+  } | null>(null);
   const [pasteKey, setPasteKey] = useState('ucc');
   const [pasteJson, setPasteJson] = useState('');
   const [manual, setManual] = useState({
@@ -57,16 +71,18 @@ export function SignalsPage() {
   const [busy, setBusy] = useState<string | null>(null);
 
   async function refresh() {
-    const [s, m, q, r] = await Promise.all([
+    const [s, m, q, r, c] = await Promise.all([
       getSignalSources(),
       getSignalMovers(),
       listResolutionQueue('pending'),
       getReferralAttribution(365),
+      getIndustrialCoverage(),
     ]);
     setSources(s);
     setMovers(m);
     setQueue(q);
     setReferrals(r);
+    setCoverage(c);
   }
 
   useEffect(() => {
@@ -102,7 +118,40 @@ export function SignalsPage() {
           Occupier space-change intelligence (UCC, FMCSA, ECHO, SBA) — orthogonal to parcel sell
           scores. Paste feed JSON or enqueue connectors; resolution queue catches fuzzy matches.
         </p>
+        <p className="mt-2 text-xs">
+          <Link to="/requirements" className="text-moss font-semibold">
+            Requirements & canvass →
+          </Link>
+        </p>
       </div>
+
+      <section className="event-card">
+        <h3 className="text-sm font-semibold text-white">
+          Clear-height coverage (moat KPI)
+        </h3>
+        <p className="text-fog mt-1 text-xs">
+          % of industrial parcels ≥20k SF with verified clear height
+          {coverage
+            ? ` — ${coverage.pct}% (${coverage.totalWithVerifiedClear}/${coverage.totalEligible})`
+            : ''}
+        </p>
+        <div className="mt-3 space-y-2">
+          {!coverage || coverage.bySubmarket.length === 0 ? (
+            <p className="text-fog text-xs">
+              Capture clear height on parcel pages to start the coverage moat.
+            </p>
+          ) : (
+            coverage.bySubmarket.slice(0, 8).map((b) => (
+              <div key={b.submarket} className="border-pine-soft flex justify-between border-b pb-1 text-xs last:border-0">
+                <span className="text-mist">{b.submarket}</span>
+                <span className="text-fog">
+                  {b.withVerifiedClear}/{b.eligible} · {b.pct}%
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       <section className="event-card">
         <h3 className="text-sm font-semibold text-white">Connectors</h3>

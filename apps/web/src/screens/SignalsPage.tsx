@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  createYardObservation,
   getIndustrialCoverage,
   getReferralAttribution,
   getSignalMovers,
@@ -68,6 +69,17 @@ export function SignalsPage() {
     referralSource: '',
     siteAddress: '',
   });
+  const [yard, setYard] = useState({
+    pin: '',
+    companyName: '',
+    siteAddress: '',
+    flightDate: new Date().toISOString().slice(0, 10),
+    yardCoveragePct: '',
+    trailerCount: '',
+    containerCount: '',
+    yardAcres: '',
+  });
+  const [yardPreview, setYardPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   async function refresh() {
@@ -115,8 +127,9 @@ export function SignalsPage() {
           Industrial Signals
         </h2>
         <p className="text-fog mt-1 max-w-2xl text-sm">
-          Occupier space-change intelligence (UCC, FMCSA, ECHO, SBA) — orthogonal to parcel sell
-          scores. Paste feed JSON or enqueue connectors; resolution queue catches fuzzy matches.
+          Occupier space-change intelligence (UCC, FMCSA, ECHO, SBA, aerial, imports, hiring) —
+          orthogonal to parcel sell scores. Paste feed JSON or enqueue connectors; resolution queue
+          catches fuzzy matches.
         </p>
         <p className="mt-2 text-xs">
           <Link to="/requirements" className="text-moss font-semibold">
@@ -171,10 +184,99 @@ export function SignalsPage() {
       </section>
 
       <section className="event-card">
+        <h3 className="text-sm font-semibold text-white">Aerial yard observation</h3>
+        <p className="text-fog mt-1 text-xs">
+          Manual/assisted counts — overflow needs &gt;85% on two flights; contraction is a drop from
+          &gt;60% to &lt;20%. Generates an annotated SVG for in-person delivery.
+        </p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="PIN (optional)"
+            value={yard.pin}
+            onChange={(e) => setYard((y) => ({ ...y, pin: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Flight date"
+            type="date"
+            value={yard.flightDate}
+            onChange={(e) => setYard((y) => ({ ...y, flightDate: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Company name"
+            value={yard.companyName}
+            onChange={(e) => setYard((y) => ({ ...y, companyName: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Site address"
+            value={yard.siteAddress}
+            onChange={(e) => setYard((y) => ({ ...y, siteAddress: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Yard coverage %"
+            value={yard.yardCoveragePct}
+            onChange={(e) => setYard((y) => ({ ...y, yardCoveragePct: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Trailer count"
+            value={yard.trailerCount}
+            onChange={(e) => setYard((y) => ({ ...y, trailerCount: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Container count"
+            value={yard.containerCount}
+            onChange={(e) => setYard((y) => ({ ...y, containerCount: e.target.value }))}
+          />
+          <input
+            className="border-pine-soft bg-ink text-mist rounded border px-3 py-2 text-sm"
+            placeholder="Yard acres (optional)"
+            value={yard.yardAcres}
+            onChange={(e) => setYard((y) => ({ ...y, yardAcres: e.target.value }))}
+          />
+        </div>
+        <button
+          type="button"
+          disabled={!!busy || !yard.yardCoveragePct || (!yard.companyName && !yard.pin)}
+          className="btn-primary mt-3 !text-xs disabled:opacity-50"
+          onClick={() =>
+            void run('Yard observation', async () => {
+              const result = await createYardObservation({
+                pin: yard.pin || undefined,
+                companyName: yard.companyName || undefined,
+                siteAddress: yard.siteAddress || undefined,
+                flightDate: yard.flightDate,
+                yardCoveragePct: Number(yard.yardCoveragePct),
+                trailerCount: yard.trailerCount ? Number(yard.trailerCount) : null,
+                containerCount: yard.containerCount ? Number(yard.containerCount) : null,
+                yardAcres: yard.yardAcres ? Number(yard.yardAcres) : null,
+              });
+              setYardPreview(result.annotatedImageRef);
+              return result;
+            })
+          }
+        >
+          Save observation
+        </button>
+        {yardPreview ? (
+          <img
+            src={yardPreview}
+            alt="Annotated yard card"
+            className="border-pine-soft mt-3 max-w-full rounded border"
+          />
+        ) : null}
+      </section>
+
+      <section className="event-card">
         <h3 className="text-sm font-semibold text-white">Paste feed JSON</h3>
         <p className="text-fog mt-1 text-xs">
-          UCC / FMCSA / ECHO / SBA JSON arrays (see apps/api/test/fixtures/signals). Lands in
-          signal_raw then normalizes.
+          UCC / FMCSA / ECHO / SBA / aerial / imports / hiring arrays (see
+          apps/api/test/fixtures/signals). Lands in signal_raw then normalizes.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <select
@@ -186,6 +288,9 @@ export function SignalsPage() {
             <option value="fmcsa">fmcsa</option>
             <option value="echo">echo</option>
             <option value="sba">sba</option>
+            <option value="aerial">aerial</option>
+            <option value="imports">imports</option>
+            <option value="hiring">hiring</option>
           </select>
           <button
             type="button"
@@ -205,6 +310,12 @@ export function SignalsPage() {
                     sourceRef = `echo:${row.eventKind}:${row.registryId || row.facilityName}`;
                   } else if (row.borrowerName && row.approvalDate) {
                     sourceRef = `sba:${row.program}:${row.borrowerName}:${row.approvalDate}`;
+                  } else if (row.eventKind && row.companyName && row.yardCoveragePct != null) {
+                    sourceRef = `aerial:${row.eventKind}:${row.companyName}:${String(row.flightDate).slice(0, 10)}`;
+                  } else if (row.consigneeName && row.period) {
+                    sourceRef = `imports:${row.consigneeName}:${row.period}`;
+                  } else if (row.companyName && row.title && row.postedAt) {
+                    sourceRef = `hiring:${row.companyName}:${row.postedAt}:${i}`;
                   }
                   return { sourceRef, body };
                 });

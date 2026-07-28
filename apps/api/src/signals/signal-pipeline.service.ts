@@ -7,7 +7,9 @@ import { UccConnector } from './connectors/ucc.connector';
 import { FmcsaConnector } from './connectors/fmcsa.connector';
 import { EchoConnector } from './connectors/echo.connector';
 import { SbaConnector } from './connectors/sba.connector';
-import { HiringConnector, ImportsConnector } from './connectors/stub.connectors';
+import { ImportsConnector } from './connectors/imports.connector';
+import { HiringConnector } from './connectors/hiring.connector';
+import { AerialConnector } from './connectors/aerial.connector';
 import { EntityResolutionService } from './resolution/entity-resolution.service';
 import { SpaceScoreService } from './space-score.service';
 
@@ -15,6 +17,7 @@ import { SpaceScoreService } from './space-score.service';
 export class SignalPipelineService {
   private readonly logger = new Logger(SignalPipelineService.name);
   private readonly sources: SignalSource[];
+  private readonly hiring: HiringConnector;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -26,8 +29,10 @@ export class SignalPipelineService {
     sba: SbaConnector,
     imports: ImportsConnector,
     hiring: HiringConnector,
+    aerial: AerialConnector,
   ) {
-    this.sources = [ucc, fmcsa, echo, sba, imports, hiring];
+    this.hiring = hiring;
+    this.sources = [ucc, fmcsa, echo, sba, imports, hiring, aerial];
   }
 
   listSources() {
@@ -188,6 +193,22 @@ export class SignalPipelineService {
   ) {
     const source = this.getSource(key);
     if (!source) throw new Error(`Unknown signal source: ${key}`);
+
+    // Hiring paste often sends raw postings — aggregate to surges first.
+    if (key === 'hiring' && records.length) {
+      const body0 = records[0]?.body as Record<string, unknown> | undefined;
+      if (body0 && body0.eventKind !== 'surge' && body0.postingCount == null) {
+        const expanded = this.hiring.toRawRecords(
+          records.map((r) => r.body),
+          new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+        );
+        records = expanded.map((r) => ({
+          sourceRef: r.sourceRef,
+          body: r.body,
+          fetchedAt: r.fetchedAt.toISOString(),
+        }));
+      }
+    }
 
     let upserted = 0;
     for (const record of records) {

@@ -1,0 +1,14 @@
+[
+  {
+    "consigneeName": "Upstate Distribution Inc",
+    "consigneeStreet": "450 Rutherford Rd",
+    "consigneeCity": "Greer",
+    "consigneeState": "SC",
+    "consigneeZip": "29650",
+    "period": "2026-06",
+    "teu": 96,
+    "priorTeu": 52,
+    "port": "Inland Port Greer",
+    "sourceSystem": "fixture"
+  }
+]

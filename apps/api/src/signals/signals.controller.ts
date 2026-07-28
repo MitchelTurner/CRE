@@ -8,6 +8,10 @@ import { JOBS, QUEUES } from '../jobs/queues';
 import { SignalPipelineService } from './signal-pipeline.service';
 import { EntityResolutionService } from './resolution/entity-resolution.service';
 import { SpaceScoreService } from './space-score.service';
+import {
+  YardObservationService,
+  type YardObservationInput,
+} from './yard-observation.service';
 
 @Controller('admin/signals')
 @UseGuards(ApiTokenGuard)
@@ -17,6 +21,7 @@ export class SignalsController {
     private readonly pipeline: SignalPipelineService,
     private readonly resolution: EntityResolutionService,
     private readonly spaceScores: SpaceScoreService,
+    private readonly yard: YardObservationService,
     @InjectQueue(QUEUES.SIGNALS) private readonly signalsQueue: Queue,
   ) {}
 
@@ -207,6 +212,16 @@ export class SignalsController {
   @Get('playbooks')
   playbooks() {
     return this.prisma.signalPlaybook.findMany({ orderBy: [{ type: 'asc' }, { subtype: 'asc' }] });
+  }
+
+  @Get('yard-observations')
+  listYard(@Query('limit') limit?: string) {
+    return this.yard.list(Number(limit ?? '50') || 50);
+  }
+
+  @Post('yard-observations')
+  createYard(@Body() body: YardObservationInput) {
+    return this.yard.create(body);
   }
 
   /**

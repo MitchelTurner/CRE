@@ -864,6 +864,28 @@ export function generateIndustrialQuarterlyReport(email = false) {
   );
 }
 
+export function createYardObservation(body: {
+  pin?: string;
+  companyName?: string;
+  siteAddress?: string;
+  flightDate: string;
+  trailerCount?: number | null;
+  containerCount?: number | null;
+  yardCoveragePct: number;
+  yardAcres?: number | null;
+  imageRef?: string | null;
+}) {
+  return request<{
+    eventKind: string;
+    signalUpserted: number;
+    annotatedImageRef: string;
+    note: string;
+  }>('/admin/signals/yard-observations', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export async function verifyToken(): Promise<boolean> {
   const token = getToken();
   if (!token) return false;

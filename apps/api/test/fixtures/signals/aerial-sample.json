@@ -1,0 +1,23 @@
+[
+  {
+    "eventKind": "overflow",
+    "companyName": "Greer Logistics LLC",
+    "siteAddress": "100 Inland Port Rd Greer SC 29651",
+    "flightDate": "2026-07-08T00:00:00.000Z",
+    "yardCoveragePct": 92,
+    "priorYardCoveragePct": 88,
+    "trailerCount": 64,
+    "containerCount": 18,
+    "annotatedImageRef": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjYjQ1MzA5Ii8+PC9zdmc+"
+  },
+  {
+    "eventKind": "contraction",
+    "companyName": "Piedmont Yard Co",
+    "siteAddress": "12 Industrial Blvd Piedmont SC 29673",
+    "flightDate": "2026-07-12T00:00:00.000Z",
+    "yardCoveragePct": 14,
+    "priorYardCoveragePct": 71,
+    "trailerCount": 4,
+    "containerCount": 0
+  }
+]

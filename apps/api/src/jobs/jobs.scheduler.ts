@@ -157,6 +157,36 @@ export class JobsScheduler implements OnApplicationBootstrap {
         },
       );
       await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'imports', reason: 'cron' },
+        {
+          jobId: 'cron-signals-imports',
+          repeat: { pattern: '0 14 * * 1', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'hiring', reason: 'cron' },
+        {
+          jobId: 'cron-signals-hiring',
+          repeat: { pattern: '0 15 * * *', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      await this.signalsQueue.add(
+        JOBS.SIGNALS_RUN_SOURCE,
+        { sourceKey: 'aerial', reason: 'cron' },
+        {
+          jobId: 'cron-signals-aerial',
+          repeat: { pattern: '0 16 * * 1', tz: 'America/New_York' },
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      await this.signalsQueue.add(
         JOBS.SIGNALS_SCORE_NIGHTLY,
         { reason: 'cron' },
         {
@@ -168,7 +198,7 @@ export class JobsScheduler implements OnApplicationBootstrap {
       );
 
       this.logger.log(
-        'Registered crons: parcels, enrichment, rod.watch, tax, digest, events, reports, signals(ucc/fmcsa/echo/sba/score)',
+        'Registered crons: parcels, enrichment, rod.watch, tax, digest, events, reports, signals(ucc/fmcsa/echo/sba/imports/hiring/aerial/score)',
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
